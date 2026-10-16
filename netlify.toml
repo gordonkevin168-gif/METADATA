@@ -1,0 +1,26 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Route API endpoints directly to Netlify Functions
+[[redirects]]
+  from = "/api/generate-metadata"
+  to = "/.netlify/functions/generate-metadata"
+  status = 200
+
+[[redirects]]
+  from = "/api/refine-metadata"
+  to = "/.netlify/functions/refine-metadata"
+  status = 200
+
+[[redirects]]
+  from = "/api/validate-key"
+  to = "/.netlify/functions/validate-key"
+  status = 200
+
+# Client-side Single Page Application (SPA) routing for all other routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

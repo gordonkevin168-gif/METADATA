@@ -24,6 +24,7 @@ import {
 
 import { extractVectorPreview } from './utils/vectorPreviewExtractor';
 import { extractVideoData } from './utils/videoExtractor';
+import { smartGenerateMetadata, smartRefineMetadata } from './services/geminiClient';
 
 const API_KEY_STORAGE_KEY = 'stockmeta_gemini_api_keys_v1';
 const MODEL_STORAGE_KEY = 'stockmeta_gemini_model_v2';
@@ -345,45 +346,27 @@ export default function App() {
         selectedModel: selectedModel,
       };
 
-      let response = await fetch('/api/generate-metadata', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestPayload),
-      });
-
-      // Automatic API Key failover on HTTP 429 Quota Exhausted
-      if (response.status === 429 && apiKeyConfig.useCustomKeys && apiKeyConfig.autoRotate) {
-        const exhaustedId = apiKeyConfig.activeKeyId;
-        const availableNext = apiKeyConfig.keys.find((k) => k.id !== exhaustedId && k.status === 'ready');
-        if (availableNext) {
-          const updatedKeys = apiKeyConfig.keys.map((k) =>
-            k.id === exhaustedId ? { ...k, status: 'exhausted' as const, errorMsg: 'Quota habis (429)' } : k
-          );
-          handleUpdateApiKeyConfig({
-            ...apiKeyConfig,
-            keys: updatedKeys,
-            activeKeyId: availableNext.id,
-          });
-
-          // Retry immediately with the rotated key
-          response = await fetch('/api/generate-metadata', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...requestPayload,
-              apiKey: availableNext.key,
-            }),
-          });
-          currentKey = availableNext.key;
+      const result = await smartGenerateMetadata(
+        requestPayload,
+        async () => {
+          if (!apiKeyConfig.useCustomKeys || !apiKeyConfig.autoRotate) return undefined;
+          const exhaustedId = apiKeyConfig.activeKeyId;
+          const availableNext = apiKeyConfig.keys.find((k) => k.id !== exhaustedId && k.status === 'ready');
+          if (availableNext) {
+            const updatedKeys = apiKeyConfig.keys.map((k) =>
+              k.id === exhaustedId ? { ...k, status: 'exhausted' as const, errorMsg: 'Quota habis (429)' } : k
+            );
+            handleUpdateApiKeyConfig({
+              ...apiKeyConfig,
+              keys: updatedKeys,
+              activeKeyId: availableNext.id,
+            });
+            currentKey = availableNext.key;
+            return availableNext.key;
+          }
+          return undefined;
         }
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || 'Server error generating metadata');
-      }
-
-      const result = await response.json();
+      );
 
       // Increment usage count for active key if custom key was used
       if (currentKey) {
@@ -411,9 +394,13 @@ export default function App() {
       });
     } catch (err: any) {
       console.error('Error analyzing item:', err);
+      const msg = err.message || 'Analysis failed. Please check network and retry.';
+      if (msg.includes('API Key Gemini tidak ditemukan')) {
+        setApiKeyModalOpen(true);
+      }
       handleUpdateItem(id, {
         status: 'error',
-        errorMessage: err.message || 'Analysis failed. Please check network and retry.',
+        errorMessage: msg,
       });
     }
   };
@@ -438,42 +425,39 @@ export default function App() {
       ? apiKeyConfig.keys.find((k) => k.id === apiKeyConfig.activeKeyId)?.key
       : undefined;
 
-    const response = await fetch('/api/refine-metadata', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        currentTitle: target.title,
-        currentKeywords: target.allKeywords,
+    try {
+      const result = await smartRefineMetadata({
+        currentTitle: target.title || '',
+        currentKeywords: target.allKeywords || [],
         refinementInstruction: instruction,
         fileName: target.fileName,
         imageBase64: target.imageBase64,
         mimeType: 'image/png',
         apiKey: currentKey,
         selectedModel: selectedModel,
-      }),
-    });
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Refinement failed');
+      handleUpdateItem(id, {
+        title: result.title,
+        titleWordCount: result.titleWordCount,
+        breakdown: result.breakdown,
+        tier1Keywords: result.tier1Keywords,
+        tier2Keywords: result.tier2Keywords,
+        tier3Keywords: result.tier3Keywords,
+        tier4Keywords: result.tier4Keywords,
+        allKeywords: result.allKeywords,
+        category: result.category,
+        categoryId: result.categoryId,
+        secondaryCategory: result.secondaryCategory,
+        rejectionRiskScore: result.rejectionRiskScore,
+        reviewNotes: result.reviewNotes,
+      });
+    } catch (err: any) {
+      console.error('Error refining item:', err);
+      handleUpdateItem(id, {
+        reviewNotes: `Refine failed: ${err.message || 'Error'}`,
+      });
     }
-
-    const result = await response.json();
-    handleUpdateItem(id, {
-      title: result.title,
-      titleWordCount: result.titleWordCount,
-      breakdown: result.breakdown,
-      tier1Keywords: result.tier1Keywords,
-      tier2Keywords: result.tier2Keywords,
-      tier3Keywords: result.tier3Keywords,
-      tier4Keywords: result.tier4Keywords,
-      allKeywords: result.allKeywords,
-      category: result.category,
-      categoryId: result.categoryId,
-      secondaryCategory: result.secondaryCategory,
-      rejectionRiskScore: result.rejectionRiskScore,
-      reviewNotes: result.reviewNotes,
-    });
   };
 
   const handleDeleteItem = (id: string) => {

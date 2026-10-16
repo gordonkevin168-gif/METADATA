@@ -17,6 +17,7 @@ import {
   Server
 } from 'lucide-react';
 import { ApiKeyConfig, ApiKeyItem } from '../types';
+import { smartValidateKey } from '../services/geminiClient';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -180,21 +181,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const handleTestKey = async (item: ApiKeyItem) => {
     setTestingKeyId(item.id);
     try {
-      const response = await fetch('/api/validate-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: item.key }),
-      });
+      const res = await smartValidateKey(item.key);
 
-      const res = await response.json();
-
-      if (response.ok && res.valid) {
+      if (res.valid) {
         const updated = config.keys.map((k) =>
           k.id === item.id ? { ...k, status: 'ready' as const, errorMsg: undefined } : k
         );
         onChangeConfig({ ...config, keys: updated });
         showToast('success', `API Key "${item.label}" valid dan siap digunakan!`);
-      } else if (response.status === 429 || res.isQuota) {
+      } else if (res.isQuota) {
         const updated = config.keys.map((k) =>
           k.id === item.id ? { ...k, status: 'exhausted' as const, errorMsg: 'Quota habis (429)' } : k
         );
@@ -202,10 +197,10 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         showToast('error', `API Key "${item.label}" telah melampaui quota (429).`);
       } else {
         const updated = config.keys.map((k) =>
-          k.id === item.id ? { ...k, status: 'invalid' as const, errorMsg: res.error || 'Invalid key' } : k
+          k.id === item.id ? { ...k, status: 'invalid' as const, errorMsg: res.message || 'Invalid key' } : k
         );
         onChangeConfig({ ...config, keys: updated });
-        showToast('error', `API Key tidak valid: ${res.error}`);
+        showToast('error', `API Key tidak valid: ${res.message}`);
       }
     } catch (err: any) {
       showToast('error', `Gagal menguji key: ${err.message}`);
