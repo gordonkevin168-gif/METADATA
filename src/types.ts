@@ -5,6 +5,24 @@ export interface MetadataBreakdown {
   productFormat: string;
   visualElements: string;
   useCase: string;
+
+  // Bedah Struktur Judul (Title Anatomy & Curator Evaluation)
+  subjectAndFormat?: string; // Subjek Utama & Format: e.g. "Abstract vector gradient poster collection"
+  baseConditionOrColor?: string; // Kondisi/Warna Dasar: e.g. "with deep navy backgrounds"
+  specificVisualElements?: string; // Elemen Visual Spesifik: e.g. ", cyan light effects, blurred color waves"
+  styleAndDetails?: string; // Gaya & Detail Tambahan: e.g. "and futuristic line graphics."
+  isBundleOrCollection?: boolean; // Menandakan apakah aset berupa bundel/set/koleksi multi-desain
+  bundleElementsSummary?: string; // Rangkuman elemen variasi tiap desain dalam bundel
+  curatorStrengths?: string[]; // Kelebihan (Sangat Kuat): Menjawab Kebutuhan Bundel, Format Kalimat Alami
+  curatorTechnicalWarning?: string; // Peringatan Teknis: Peringatan panjang karakter web UI vs kolom CSV/FTP
+}
+
+export interface VideoFrameSample {
+  timestamp: number; // in seconds
+  percent: number; // percentage of duration, e.g. 15, 50, 85
+  label: string; // e.g. 'Frame Awal (15%)', 'Frame Tengah (50%)', 'Frame Akhir (85%)'
+  previewUrl: string; // Data URL for rendering thumbnail
+  imageBase64: string; // Base64 payload for Gemini Vision
 }
 
 export interface VideoMetadata {
@@ -15,7 +33,8 @@ export interface VideoMetadata {
   aspectRatio: string; // '16:9', '9:16', '1:1', '4:3'
   fps?: number;
   format: string; // 'mp4', 'mov', 'webm', etc.
-  extractedFrameTimestamp?: number; // timestamp in seconds where frame was captured
+  extractedFrameTimestamp?: number; // timestamp in seconds where primary frame was captured
+  frames?: VideoFrameSample[]; // 3 temporal frames for multi-frame vision analysis
 }
 
 export interface StockItem {
@@ -31,6 +50,7 @@ export interface StockItem {
   artworkType?: 'auto' | 'vector' | 'photo' | 'illustration' | '3d_render' | 'footage';
   videoMeta?: VideoMetadata;
   videoUrl?: string; // object URL for video playback
+  videoFrames?: VideoFrameSample[]; // 3 temporal frames for video analysis
   status: 'idle' | 'analyzing' | 'completed' | 'error';
   errorMessage?: string;
   progressStep?: string;
@@ -38,8 +58,11 @@ export interface StockItem {
   previewSource?: 'dos_eps_tiff' | 'ps_preview' | 'pdf_render' | 'xmp_thumbnail' | 'embedded_jpeg' | 'gs_render' | 'gs_ai_render' | 'gs_eps_render' | 'companion' | 'native' | 'video_frame';
 
   // Generated metadata
+  targetKeywordCount?: number;
   title?: string;
   titleWordCount?: number;
+  titleCharCount?: number;
+  embedded?: boolean;
   breakdown?: MetadataBreakdown;
   tier1Keywords?: string[];
   tier2Keywords?: string[];
@@ -137,3 +160,73 @@ export const GEMINI_MODEL_OPTIONS: GeminiModelOption[] = [
     speed: '~2.4s',
   },
 ];
+
+export type SubAppMode = 'dashboard' | 'metadata' | 'image' | 'motion' | 'zipsmart' | 'presets' | 'history' | 'files' | 'favorites';
+
+export interface UserProfile {
+  email: string;
+  name: string;
+  avatarUrl: string;
+  isLoggedIn: boolean;
+  provider: 'google';
+  role: 'contributor' | 'pro_contributor' | 'curator';
+  plan: 'Contributor Pro' | 'Free Tier';
+  creditsRemaining: number;
+  joinedDate: string;
+}
+
+export type MotionBgMode = 'transparent' | 'green' | 'white' | 'black' | 'custom';
+
+export interface MotionPresetItem {
+  id: string;
+  title: string;
+  category: string;
+  prompt: string;
+  defaultDuration: number;
+  defaultBg: MotionBgMode;
+  code: string;
+  thumbnailIcon: string;
+}
+
+export interface MotionVersion {
+  version: number;
+  code: string;
+  prompt: string;
+  timestamp: number;
+}
+
+export interface MotionProject {
+  id: string;
+  title: string;
+  prompt: string;
+  duration: number;
+  scenes: number;
+  bgMode: MotionBgMode;
+  code: string;
+  referenceImageBase64?: string;
+  referenceImagePreview?: string;
+  versionHistory: MotionVersion[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface GenerateMotionPayload {
+  prompt: string;
+  duration: number;
+  scenes?: number;
+  bgMode?: MotionBgMode;
+  referenceImageBase64?: string;
+  apiKey?: string;
+  selectedModel?: GeminiModelId;
+}
+
+export interface RefineMotionPayload {
+  currentCode: string;
+  refinementPrompt: string;
+  duration: number;
+  bgMode?: MotionBgMode;
+  referenceImageBase64?: string;
+  apiKey?: string;
+  selectedModel?: GeminiModelId;
+}
+

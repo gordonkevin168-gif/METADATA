@@ -14,8 +14,25 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function getPort(): number {
+  const portArgIdx = process.argv.indexOf('--port');
+  if (portArgIdx !== -1 && process.argv[portArgIdx + 1]) {
+    const parsed = parseInt(process.argv[portArgIdx + 1], 10);
+    if (!isNaN(parsed) && parsed !== 8080) return parsed;
+  }
+  // In Cloud Run environments, process.env.PORT is 8080 (reserved for nginx proxy).
+  // The Node Express / Vite app must strictly bind to port 3000.
+  if (process.env.APP_PORT) {
+    return parseInt(process.env.APP_PORT, 10);
+  }
+  if (process.env.PORT && process.env.PORT !== '8080') {
+    return parseInt(process.env.PORT, 10);
+  }
+  return 3000;
+}
+
+const PORT = getPort();
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -113,26 +130,347 @@ function getAdobeCategoryId(categoryStr?: string, categoryNum?: number): number 
   return 8;
 }
 
+const RECOGNIZED_STOCK_COMPOUND_PHRASES = new Set([
+  'copy space', 'copyspace', 'golden hour', 'blue hour', 'slow motion', 'drone shot', 'drone view',
+  'real estate', 'graphic design', 'social media', 'artificial intelligence', 'machine learning',
+  'deep learning', 'street food', 'flat lay', 'high angle', 'low angle', 'birds eye', 'shallow depth',
+  'depth field', 'time lapse', 'color grading', 'green screen', 'b roll', 'top view', 'side view',
+  'front view', 'close up', 'wide shot', 'sun set', 'data science', 'user interface', 'user experience',
+  'augmented reality', 'virtual reality', 'cyber security', 'cloud computing', 'health care',
+  'mental health', 'work space', 'public transport', 'solar panel', 'renewable energy', 'clean energy',
+  'electric vehicle', 'fast charger', 'charging station', 'smart car', 'power level', '3d rendering',
+  'motion graphic', 'explainer video', 'cv screening', 'recruitment software', 'human resources',
+  'climate change', 'credit card', 'smart phone', 'digital marketing', 'e commerce', 'online shopping',
+  'wireframe model', 'data protection', 'password protection', 'access control', 'two factor',
+  'cyber security', 'cybersecurity', 'lock icon', 'santa hat', 'office desk', 'desk lamp',
+  'holiday season', 'workplace environment', 'security monitoring', 'dashboard interface', 'secure login'
+]);
+
+const TITLE_FILLER_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'of', 'for', 'in', 'on', 'at', 'to', 'from',
+  'with', 'by', 'as', 'into', 'over', 'through', 'under', 'between', 'out',
+  'up', 'down', 'about', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'its', 'their', 'this', 'that', 'these', 'those', 'using', 'showing', 'having',
+  'made', 'making', 'without', 'per', 'set', 'via', 'how', 'which', 'who', 'whom',
+  'where', 'when', 'why', 'can', 'will', 'do', 'does', 'did', 'so', 'if', 'all',
+  'featuring', 'depicting', 'displaying', 'illustrating', 'representing',
+  'across', 'along', 'around', 'near', 'off', 'onto', 'toward', 'towards',
+  'during', 'hanging', 'holding', 'standing', 'sitting', 'lying', 'walking', 'running',
+  'pointing', 'looking', 'including', 'containing', 'expressing', 'symbolizing',
+  'static', 'shot', 'shots', 'taking', 'takes', 'various', 'multiple', 'several',
+  'against', 'among', 'amidst', 'within', 'throughout', 'view', 'views',
+]);
+
+const VERB_TO_COMMERCIAL_NOUN: Record<string, string> = {
+  automating: 'automation',
+  automated: 'automation',
+  recruiting: 'recruitment',
+  managing: 'management',
+  designing: 'design',
+  analyzing: 'analytics',
+  rendering: 'render',
+  efficient: 'efficiency',
+  charging: 'charging',
+  screening: 'screening',
+  hiring: 'hiring',
+  protecting: 'protection',
+  securing: 'security',
+  secured: 'security',
+  logging: 'login',
+  authenticating: 'authentication',
+  monitoring: 'monitoring',
+  connecting: 'connection',
+  communicating: 'communication',
+  transmitting: 'transmission',
+  computing: 'computing',
+  processing: 'processing',
+  optimizing: 'optimization',
+  encrypting: 'encryption',
+  encrypted: 'encryption',
+  operating: 'operation',
+  working: 'workplace',
+};
+
+function sanitizeStockVideoTitle(rawTitle: string): string {
+  if (!rawTitle) return '';
+  let cleaned = rawTitle.trim();
+
+  const prefixRegex = /^(?:(?:a|an|the)\s+)?(?:static\s+|slow\s+motion\s+|cinematic\s+|aerial\s+|drone\s+|macro\s+|close[\s-]*up\s+|timelapse\s+|panning\s+|tracking\s+)*(?:(?:4k|8k|uhd|hd|full\s+hd)\s+)?(?:video\s+shot|drone\s+shot|camera\s+shot|aerial\s+shot|video\s+clip|video\s+footage|stock\s+footage|footage|video|clip|shot)\s+of\s+/i;
+
+  if (prefixRegex.test(cleaned)) {
+    cleaned = cleaned.replace(prefixRegex, '').trim();
+  }
+
+  const explainerPrefixRegex = /^(?:(?:a|an|the)\s+)?(?:animated\s+)?(?:(?:4k|8k|uhd|hd)\s+)?(?:explainer\s+video|motion\s+graphics?\s+video)\s+(?:showing|depicting|featuring)\s+/i;
+  if (explainerPrefixRegex.test(cleaned)) {
+    cleaned = cleaned.replace(explainerPrefixRegex, 'Animated ').trim();
+  }
+
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  return cleaned;
+}
+
+export function clampTitleToMaxWords(rawTitle: string, maxWords: number = 15): string {
+  if (!rawTitle) return '';
+  const trimmed = rawTitle.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return trimmed;
+
+  const connectors = new Set(['and', 'with', 'for', 'of', 'in', 'on', 'at', 'to', 'from', 'or', 'by', 'as', 'using', 'showing', 'featuring']);
+  let slice = words.slice(0, maxWords);
+  let clamped = slice.join(' ').replace(/[,;:\-\s]+$/, '');
+  const currentWords = clamped.split(/\s+/);
+  if (currentWords.length > 1 && connectors.has(currentWords[currentWords.length - 1].toLowerCase())) {
+    currentWords.pop();
+    clamped = currentWords.join(' ').replace(/[,;:\-\s]+$/, '');
+  }
+  return clamped;
+}
+
+const FORMAT_AND_TECHNICAL_TERMS = new Set([
+  '4k', 'uhd', 'hd', 'fps', '60fps', 'video', 'footage', 'clip', 'roll',
+  'loop', 'explainer', 'broll', 'cinematic', 'horizontal', 'vertical',
+  'rendering', 'render', '3d', '2d', 'vector', 'illustration', 'photo',
+]);
+
+function extractCuratedTitleConcepts(title: string) {
+  if (!title) {
+    return {
+      coreSubjectNouns: [],
+      recognizedCompounds: [],
+      filteredFillerWords: [],
+      formatTerms: [],
+    };
+  }
+
+  const lower = title.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ');
+  const recognizedCompounds: string[] = [];
+  const coreSubjectNouns: string[] = [];
+  const filteredFillerWords: string[] = [];
+  const formatTerms: string[] = [];
+
+  for (const phrase of RECOGNIZED_STOCK_COMPOUND_PHRASES) {
+    if (lower.includes(phrase)) {
+      recognizedCompounds.push(phrase);
+    }
+  }
+
+  const rawWords = lower.split(/[\s-]+/).filter((w) => w.length > 1);
+  for (const w of rawWords) {
+    if (TITLE_FILLER_WORDS.has(w)) {
+      filteredFillerWords.push(w);
+      continue;
+    }
+
+    if (FORMAT_AND_TECHNICAL_TERMS.has(w)) {
+      formatTerms.push(w);
+      continue;
+    }
+
+    const normalized = VERB_TO_COMMERCIAL_NOUN[w] || w;
+    if (!coreSubjectNouns.includes(normalized)) {
+      coreSubjectNouns.push(normalized);
+    }
+  }
+
+  return {
+    coreSubjectNouns,
+    recognizedCompounds,
+    filteredFillerWords: Array.from(new Set(filteredFillerWords)),
+    formatTerms: Array.from(new Set(formatTerms)),
+  };
+}
+
+function curateStockKeywords(
+  rawT1: any[],
+  rawT2: any[],
+  rawT3: any[],
+  rawT4: any[],
+  isVideo: boolean = false,
+  title: string = '',
+  targetCount: number = 40
+) {
+  const cleanKeyword = (str: string) =>
+    str.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, ' ');
+
+  const finalTarget = Math.max(25, Math.min(49, targetCount || 40));
+  const t1Target = Math.min(10, Math.max(5, Math.round(finalTarget * 0.22)));
+  const t2Target = Math.min(10, Math.max(5, Math.round(finalTarget * 0.22)));
+  const t3Target = Math.max(7, Math.round(finalTarget * 0.32));
+
+  const seen = new Set<string>();
+  let totalCompounds = 0;
+  // Strictly enforce 85% to 100% single words (max 2-3 recognized compound phrases total)
+  const MAX_TOTAL_COMPOUNDS = Math.min(3, Math.round(finalTarget * 0.08));
+
+  const processTierList = (arr: any[], isTier1: boolean = false): string[] => {
+    if (!Array.isArray(arr)) return [];
+    const tierResult: string[] = [];
+    let tier1CompoundCount = 0;
+
+    for (const raw of arr) {
+      if (!raw) continue;
+      const cleaned = cleanKeyword(String(raw));
+      if (!cleaned) continue;
+
+      const words = cleaned.split(/[\s-]+/).filter((w) => w.length > 1);
+      if (words.length === 0) continue;
+
+      if (words.length === 1) {
+        const single = VERB_TO_COMMERCIAL_NOUN[words[0]] || words[0];
+        if (!seen.has(single)) {
+          seen.add(single);
+          tierResult.push(single);
+        }
+      } else if (words.length === 2) {
+        const phrase = words.join(' ');
+        const isRecognizedCompound = RECOGNIZED_STOCK_COMPOUND_PHRASES.has(phrase);
+        const canAddCompound =
+          isRecognizedCompound &&
+          totalCompounds < MAX_TOTAL_COMPOUNDS &&
+          (!isTier1 || tier1CompoundCount < 2);
+
+        if (canAddCompound && !seen.has(phrase)) {
+          seen.add(phrase);
+          tierResult.push(phrase);
+          totalCompounds++;
+          if (isTier1) tier1CompoundCount++;
+        } else {
+          for (const w of words) {
+            const single = VERB_TO_COMMERCIAL_NOUN[w] || w;
+            if (single.length > 1 && !seen.has(single)) {
+              seen.add(single);
+              tierResult.push(single);
+            }
+          }
+        }
+      } else {
+        for (const w of words) {
+          const single = VERB_TO_COMMERCIAL_NOUN[w] || w;
+          if (single.length > 1 && !seen.has(single)) {
+            seen.add(single);
+            tierResult.push(single);
+          }
+        }
+      }
+    }
+    return tierResult;
+  };
+
+  const t1 = processTierList(rawT1, true);
+  const t2 = processTierList(rawT2, false);
+  const t3 = processTierList(rawT3, false);
+  const t4 = processTierList(rawT4, false);
+
+  const { coreSubjectNouns } = extractCuratedTitleConcepts(title);
+
+  // If a core subject noun was omitted by generation, insert into t1 or t3
+  for (const subject of coreSubjectNouns) {
+    if (!seen.has(subject)) {
+      if (t1.length < t1Target) {
+        seen.add(subject);
+        t1.push(subject);
+      } else if (t3.length < t3Target) {
+        seen.add(subject);
+        t3.push(subject);
+      }
+    }
+  }
+
+  // Tier 1 (Hero Visual Subjects) remains at the front
+  const combined: string[] = [...t1, ...t2, ...t3, ...t4];
+
+  const singleWordFillers = isVideo
+    ? [
+        'footage', 'clip', 'motion', 'video', 'cinematic', 'aerial', 'drone', 'camera', 'panning',
+        'movement', 'realtime', 'broll', 'landscape', 'action', 'outdoor', 'indoor', 'light',
+        'speed', 'sequence', 'scene', 'visual', 'production', 'creative', 'commercial', 'modern',
+        'presentation', 'horizontal', 'loop', 'hd', 'digital'
+      ]
+    : [
+        'illustration', 'vector', 'design', 'graphic', 'isolated', 'background', 'concept',
+        'modern', 'art', 'creative', 'element', 'template', 'digital', 'symbol', 'icon',
+        'sign', 'layout', 'style', 'clean', 'simple', 'decorative', 'texture', 'commercial',
+        'flat', 'visual', 'composition', 'white', 'abstract', 'banner'
+      ];
+
+  for (const filler of singleWordFillers) {
+    if (combined.length >= finalTarget) break;
+    if (!seen.has(filler)) {
+      seen.add(filler);
+      combined.push(filler);
+    }
+  }
+
+  const finalKeywords = combined.slice(0, finalTarget);
+  const finalT1 = finalKeywords.slice(0, t1Target);
+  const finalT2 = finalKeywords.slice(t1Target, t1Target + t2Target);
+  const finalT3 = finalKeywords.slice(t1Target + t2Target, t1Target + t2Target + t3Target);
+  const finalT4 = finalKeywords.slice(t1Target + t2Target + t3Target, finalTarget);
+
+  const singleWords = finalKeywords.filter((k) => k.split(/\s+/).length === 1);
+  const compoundWords = finalKeywords.filter((k) => k.split(/\s+/).length > 1);
+
+  const matchedCoreSubjects = coreSubjectNouns.filter((cs) =>
+    finalKeywords.some((k) => k === cs || k.split(' ').includes(cs))
+  );
+
+  return {
+    tier1Keywords: finalT1,
+    tier2Keywords: finalT2,
+    tier3Keywords: finalT3,
+    tier4Keywords: finalT4,
+    allKeywords: finalKeywords,
+    singleWordCount: singleWords.length,
+    compoundCount: compoundWords.length,
+    singleWordPercentage: Math.round((singleWords.length / finalKeywords.length) * 100),
+    titleMatchCount: matchedCoreSubjects.length,
+    titleMatchPercentage: coreSubjectNouns.length > 0
+      ? Math.round((matchedCoreSubjects.length / coreSubjectNouns.length) * 100)
+      : 100,
+    coreSubjectsFound: matchedCoreSubjects,
+  };
+}
+
 const METADATA_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     title: {
       type: Type.STRING,
-      description: 'The stock photo/vector title following [Style/Theme] + [Product Format] + [Specific Visual Elements] + [Use Case/Application] formula, strictly 15 to 25 words in professional English.',
+      description: 'The stock photo/vector/video title following [Style/Theme] + [Product Format] + [Specific Visual Elements] + [Use Case/Application] formula, strictly maximum 15 words (ideal: 10 to 15 words) in professional English. NEVER exceed 15 words.',
     },
     titleWordCount: {
       type: Type.INTEGER,
-      description: 'Number of words in the title, must be between 15 and 25.',
+      description: 'Number of words in the title, must be at most 15 words (maximum 15 words).',
     },
     breakdown: {
       type: Type.OBJECT,
       properties: {
         styleTheme: { type: Type.STRING, description: 'Style or theme component (e.g. Modern Minimalist, Vibrant Cyberpunk, Elegant Corporate)' },
-        productFormat: { type: Type.STRING, description: 'Format component (e.g. Vector Illustration, 3D Render Banner, Flyer Template, Background Texture)' },
+        productFormat: { type: Type.STRING, description: 'Format component (e.g. Vector Illustration, 3D Render Banner, Flyer Template, Background Texture, Poster Collection)' },
         visualElements: { type: Type.STRING, description: 'Specific visual elements (e.g. geometric gradients, golden leaves, neon glowing grid)' },
         useCase: { type: Type.STRING, description: 'Application or target use case (e.g. for marketing campaign, website landing page, social media poster)' },
+        // 1. Bedah Struktur Judul: 4 Pilar Formula
+        subjectAndFormat: { type: Type.STRING, description: 'Subjek Utama & Format (e.g. Abstract vector gradient poster collection)' },
+        baseConditionOrColor: { type: Type.STRING, description: 'Kondisi/Warna Dasar (e.g. with deep navy backgrounds / with dark red and black gradients)' },
+        specificVisualElements: { type: Type.STRING, description: 'Elemen Visual Spesifik (e.g. , cyan light effects, blurred color waves)' },
+        styleAndDetails: { type: Type.STRING, description: 'Gaya & Detail Tambahan (e.g. and futuristic line graphics for modern branding, print layout and presentation cover.)' },
+        isBundleOrCollection: { type: Type.BOOLEAN, description: 'True if asset represents a bundle, set, series, or multi-design collection (e.g. 5 posters in 1 preview).' },
+        bundleElementsSummary: { type: Type.STRING, description: 'Summary of unique elements across variants in the bundle (e.g. blurred waves, geometric arrows, glowing orb, diagonal halftone stripes).' },
+        curatorStrengths: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: 'Key curator strengths of this title (e.g. Menjawab Kebutuhan Bundel, Format Kalimat Alami ramah AI Search/Adobe Sensei).',
+        },
+        curatorTechnicalWarning: {
+          type: Type.STRING,
+          description: 'Technical evaluation warning comparing Web UI character limit (max 200 chars) vs CSV/FTP upload limit (recommended under 70-100 chars).',
+        },
       },
-      required: ['styleTheme', 'productFormat', 'visualElements', 'useCase'],
+      required: ['styleTheme', 'productFormat', 'visualElements', 'useCase', 'subjectAndFormat', 'baseConditionOrColor', 'specificVisualElements', 'styleAndDetails'],
     },
     tier1Keywords: {
       type: Type.ARRAY,
@@ -219,21 +557,23 @@ app.post('/api/generate-metadata', async (req: Request, res: Response) => {
       targetPlatform = 'all',
       artworkType = 'auto',
       mediaType = 'image',
+      targetKeywordCount: rawTargetCount,
       videoMeta,
+      videoFrames,
       apiKey: bodyApiKey,
       selectedModel = 'gemini-3.8-flash',
     } = req.body;
 
+    const targetKeywordCount = Math.max(25, Math.min(49, parseInt(String(rawTargetCount), 10) || 40));
     const customKey = bodyApiKey || (req.headers['x-gemini-api-key'] as string);
     const activeAi = getGeminiClient(customKey);
     const primaryModel = selectedModel || 'gemini-3.8-flash';
 
-    if (!imageBase64) {
-      return res.status(400).json({ error: 'Image base64 data is required for visual analysis' });
-    }
-
     // Clean base64 string if it contains data URI header
-    const cleanBase64 = imageBase64.replace(/^data:[a-zA-Z0-9\/+-]+;base64,/, '');
+    const cleanBase64 = (imageBase64 && typeof imageBase64 === 'string')
+      ? imageBase64.replace(/^data:[a-zA-Z0-9\/+-]+;base64,/, '').trim()
+      : '';
+    const hasCleanBase64 = cleanBase64.length > 50;
 
     // Determine accurate raster mime type (never pass application/illustrator or application/postscript to Gemini)
     const effectiveMimeType = detectImageMimeType(cleanBase64, mimeType);
@@ -245,26 +585,94 @@ app.post('/api/generate-metadata', async (req: Request, res: Response) => {
       videoContextPrompt = `
 MEDIA TYPE: STOCK FOOTAGE / VIDEO CLIP
 TECHNICAL SPECS: Resolution: ${videoMeta?.resolutionLabel || '4K/HD'}, Duration: ${videoMeta?.duration ? videoMeta.duration + ' seconds' : 'Short clip'}, Aspect Ratio: ${videoMeta?.aspectRatio || '16:9 Landscape'}, Format: ${videoMeta?.format?.toUpperCase() || 'MP4'}.
-VIDEO TITLE FORMULA (Strictly 15 to 25 words in professional stock English):
-- Pattern: [Camera Motion/Pacing] + [Stock Footage/Video Format] + [Exact Visible Actions, Subjects & Environment] + [Commercial/B-Roll Use Case]
-- Examples of proper video title:
-  * "Slow Motion 4K Drone Aerial Shot of Sunset Glowing Over Mountain Valley for Cinematic Travel Commercial B-Roll"
-  * "Close Up High Speed Realtime Footage of Roasted Espresso Coffee Beans Falling into Grinder for Cafe Promo"
-  * "Cinematic Panning 4K Video of Modern Corporate Office Skyline at Dusk with Traffic Lights for Business Presentation"
+
+VIDEO TITLE FORMULA (Strictly maximum 15 words in professional stock English):
+- CRITICAL ANTI-CLICHÉ RULE (ADOBE STOCK PAGE 1 STANDARD):
+  * NEVER begin video titles with camera rig, resolution, or technical format prefixes!
+    ❌ FORBIDDEN PREFIXES:
+       - "Static 4K Video Shot of..."
+       - "4K Video of..." / "4K Footage of..." / "Stock Footage of..."
+       - "Video Shot of..." / "Shot of..." / "Slow Motion Shot of..."
+       - "Drone Shot of..." / "Aerial Drone Shot of..."
+       - "Cinematic Shot of..." / "Close Up Video of..."
+  * LEAD DIRECTLY WITH THE HERO SUBJECT, ACTION, OR SCENE!
+    Contoh Perbaikan Langsung:
+    ❌ SALAH: "Static 4K Video Shot of Red Santa Hat Hanging on Modern Office Desk Lamp During Christmas Holiday Season in Corporate Workplace Environment."
+    ✅ BENAR: "Red Santa Hat Hanging on Modern Office Desk Lamp During Christmas Holiday Season in Corporate Workplace Environment."
+
+    Asset Nyata Page 1 Adobe Stock (Contoh Standar Emas):
+    ✅ "Animated laptop displaying password protection dashboard interface with charts and lock icon for cybersecurity monitoring."
+    (Perhatikan: Langsung ke subjek aktif "Animated laptop displaying...", BUKAN "Static 4K Video Shot of laptop...", maksimal 15 kata)
+
+- Formula Structure:
+  [Visual Subject / Main Object / Scene Focus] + [Visible Motion, Interaction, or State] + [Setting, Environment & Lighting] + [Commercial Theme, Industry Context or Workflow]
+- Examples of proper Page 1 video titles (strictly <= 15 words):
+  * "Golden Sunset Over Mountain Valley Ridges, Aerial Panorama During Warm Evening for Travel Commercial"
+  * "Roasted Espresso Coffee Beans Falling into Grinder in Slow Motion for Cafe Promo Video"
+  * "Modern Corporate Office Skyline at Dusk with Busy Street Traffic for Business Presentation"
+
 VIDEO 49 KEYWORD MANDATE:
-- Seamlessly integrate essential microstock video search keywords across the 4 tiers:
-  * Video terms: footage, 4k, slow motion, b-roll, clip, cinematic, aerial, drone, camera, panning, realtime, loop, horizontal, motion, etc.
-  * Tier 1 (1-10): The exact primary subject and action moving in the frame.
-  * Tier 2 (11-20): Lighting, camera angle, motion speed, aesthetic mood, and color palette.
-  * Tier 3 (21-35): Video production use cases, documentary, advertising, broadcast, youtube, promo, social media.
-  * Tier 4 (36-49): Video stock tags, technical tags, and conceptual search terms.
+- Integrate video terms across 4 tiers: footage, 4k, slow motion, b-roll, clip, cinematic, aerial, drone, camera, panning, realtime, loop, horizontal, motion, etc.
+- Tier 1 (1-10): The exact primary visual hero subject and action moving in the frame.
+- Tier 2 (11-20): Lighting, camera angle, motion speed, aesthetic mood, and color palette.
+- Tier 3 (21-35): Video production use cases, documentary, advertising, broadcast, youtube, promo, social media.
+- Tier 4 (36-49): Video stock tags, technical tags, and conceptual search terms.
 - Every keyword must still be strictly 1 or 2 words maximum.`;
     }
 
     const systemPrompt = `You are a Senior Stock Contributor Strategist and Master AI Vision Specialist for Adobe Stock, Shutterstock, Freepik, and Getty Images.
-Your task is to analyze the visual preview uploaded by the contributor and produce 100% commercially accurate, truthfully grounded stock metadata (Title and exactly 49 Keywords).
+Your task is to analyze the visual preview uploaded by the contributor and produce 100% commercially accurate, truthfully grounded stock metadata (Title strictly maximum 15 words, and exactly 49 Keywords).
 
-CORE MANDATE - STRICT VISUAL GROUNDING (ZERO HALLUCINATIONS, NO GUESSWORK):
+CORE MANDATE 1: EXPERT ADOBE STOCK CURATOR CONSTITUTION (HIGH-DEMAND KEYWORDS & ZERO RAW SCRAPING):
+In Adobe Stock's ranking algorithm, the Title describes the asset contextually in strictly maximum 15 words (ideal: 10 to 15 words), while Keywords are the high-converting search tags stock buyers type into the search bar.
+DO NOT simply copy-paste or blindly scrape every word from the title into keywords!
+Think like a veteran microstock contributor: keywords determine whether your asset lands on Page 1 or is buried in millions of files.
+
+Study this real Adobe Stock Page 1 example carefully:
+Title: "Animated laptop displaying password protection dashboard interface with charts and lock icon, representing secure login, data protection, and cybersecurity monitoring system."
+
+HOW AN EXPERT CURATOR EXTRACTS KEYWORDS FROM THIS ASSET & TITLE:
+1. ONLY PICK HIGH-DEMAND, HIGH-SEARCH-VOLUME NOUNS & COMMERCIAL TERMS:
+   - Hero Visual Objects (Tier 1): laptop, dashboard, interface, charts, lock, icon, password, screen, display
+   - Core Commercial Subjects (Tier 1 & Tier 3): cybersecurity, security, protection, login, monitoring, system, data protection, safe
+   - Visual Aesthetics (Tier 2): animated, digital, graphic, modern, motion, ui, technology, blue, clean
+   - Buyer Verticals & Workflows (Tier 3): information technology, authentication, access, software, cloud, privacy, business, database, firewall
+   - Video Specs & Broad Concepts (Tier 4): footage, 4k, clip, animation, loop, concept, virtual, horizontal
+
+2. WHAT AN EXPERT CURATOR STRICTLY REJECTS & EXCLUDES FROM KEYWORDS:
+   - Filler prepositions & conjunctions: 'of', 'with', 'and', 'on', 'in', 'during', 'for'
+   - Weak depictive verbs & participles: 'displaying', 'representing', 'hanging', 'showing', 'featuring', 'depicting' (Stock buyers NEVER search for "displaying" or "representing"!)
+   - Camera & Rig clichés: 'shot', 'static', 'video shot'
+
+3. TIER ARCHITECTURE:
+   - Tier 1 (Pos 1-10 - CRITICAL ALGORITHMIC SEARCH WEIGHT): Primary physical visual objects seen directly in the preview + core commercial subject nouns. At least 8-9 must be strictly single words! NEVER place technical video tags ('4k', 'footage') in Tier 1!
+   - Tier 2 (Pos 11-20): Visual style, aesthetics, colors, lighting, rendering technique (e.g. animated, digital, blue, modern, motion, clean).
+   - Tier 3 (Pos 21-35): Industry verticals, business workflows, buyer use cases (e.g. cybersecurity, authentication, privacy, safe, software, network, access, cloud).
+   - Tier 4 (Pos 36-49): Video production & technical formats ('footage', '4k', 'clip', 'animation', 'loop', 'horizontal') and broad conceptual themes ('concept', 'innovation', 'intelligence', 'virtual', 'protection').
+   - RATIO: 75% to 85% strictly 1 single word. Only 15% to 25% recognized compound phrases (2 words max). ZERO 3+ word phrases. Exactly 49 keywords.
+
+- Example A (Video - Real Page 1 Standard):
+  Title: "Animated Laptop Displaying Password Protection Dashboard Interface with Charts and Lock Icon, Representing Secure Login, Data Protection, and Cybersecurity Monitoring System"
+  Tier 1 Keywords (1-10): laptop, dashboard, interface, charts, lock, icon, password, screen, cybersecurity, display
+  Tier 2 Keywords (11-20): animated, digital, blue, modern, clean, motion, graphic, ui, tech, minimalist
+  Tier 3 Keywords (21-35): security, protection, login, monitoring, authentication, privacy, access, data, system, software, safe, cloud, network, corporate, business
+  Tier 4 Keywords (36-49): footage, 4k, clip, animation, loop, horizontal, concept, innovation, intelligence, virtual, analytics, compliance, enterprise, solution
+
+- Example B (Video - Seasonal Holiday Workplace):
+  Title: "Red Santa Hat Hanging on Modern Office Desk Lamp During Christmas Holiday Season in Corporate Workplace Environment"
+  Tier 1 Keywords (1-10): santa hat, hat, desk, lamp, office, workplace, christmas, holiday, celebration, decoration
+  Tier 2 Keywords (11-20): red, modern, warm, indoor, cozy, interior, festive, cheerful, contemporary, clean
+  Tier 3 Keywords (21-35): corporate, business, coworker, party, december, winter, season, employment, professional, greeting, event, year end, tradition, break, commercial
+  Tier 4 Keywords (36-49): footage, 4k, clip, realtime, broll, horizontal, concept, happiness, joy, leisure, festive season, vacancy, quiet, peace
+
+- Example C (Graphic / 3D Interface / Technology):
+  Title: "Battery Charging Status of Electric Vehicle Interface Using DC Fast Charger from Charging Station, 3D Rendering Futuristic Fuel Power Level Indicator UI Display for EV Automotive Industry Technology"
+  Tier 1 Keywords (1-10): battery, charger, station, vehicle, display, interface, indicator, screen, gauge, charging
+  Tier 2 Keywords (11-20): 3d rendering, futuristic, fuel, ui, ev, automotive, industry, cyan, glowing, digital
+  Tier 3 Keywords (21-35): clean energy, electricity, dashboard, eco, mobility, smart car, transport, drive, sustainable, automobile, cable, meter, electric vehicle, power level, fast charger
+  Tier 4 Keywords (36-49): innovation, high tech, render, visual, commercial, isolated, concept, dark, illuminated, plug, power, energy, device, telemetry
+
+CORE MANDATE 2: STRICT VISUAL GROUNDING (ZERO HALLUCINATIONS, NO GUESSWORK):
 The contributor explicitly uploaded this visual asset preview so that the metadata accurately reflects what is in the artwork.
 DO NOT guess or invent random elements. DO NOT output boilerplate or irrelevant terms.
 1. VISUAL INSPECTION:
@@ -278,16 +686,18 @@ DO NOT guess or invent random elements. DO NOT output boilerplate or irrelevant 
    - If the visual depicts food/drinks, the keywords MUST be gastronomy, culinary, dining, delicious, cooking, meal, recipe, etc.
    - If the visual depicts plants/botanicals, the keywords MUST be flora, leaf, foliage, nature, botanical, branch, organic, garden, etc.
    - If the visual depicts abstract geometric waves/shapes, the keywords MUST describe abstract, geometric, curves, waves, gradients, backdrop, layout, wallpaper, etc.
-3. TITLE FORMULA (Strictly 15 to 25 words in professional stock English):
-   - Title MUST be between 15 and 25 words in length.
+3. TITLE FORMULA (Strictly maximum 15 words in professional stock English):
+   - Title MUST be maximum 15 words in length (ideal: 10 to 15 words). NEVER exceed 15 words.
    - Every element in the title must accurately match what is visible in the preview.
 4. 49 HIERARCHICAL KEYWORDS (Strict Adobe Stock & Microstock Ranking Order):
    CRITICAL KEYWORD RULE: In accordance with Adobe Stock contributor guidelines and search conversion algorithms:
-   - Each keyword must be strictly 1 or 2 words maximum (prefer concise single words for 75-85% of keywords).
+   - 75% to 80% of all keywords (approx 37-40 of the 49 keywords) MUST BE STRICTLY 1 SINGLE WORD (e.g. "battery", "charging", "software", "recruitment", "screening", "mountain", "coffee", "sunset", "laptop", "vector", "aerial", "minimalist", "gold", "vibrant", "growth").
+   - Maximum 20% to 25% (approx 9-12 keywords) may be 2 words, and ONLY for recognized fixed compound phrases (e.g. "electric vehicle", "fast charger", "charging station", "3d rendering", "copy space", "golden hour", "slow motion", "drone shot", "real estate", "social media", "flat lay", "artificial intelligence").
+   - DO NOT combine generic adjective + noun into 2 words (e.g. DO NOT write "red car", write "car" and "red"; DO NOT write "modern building", write "building" and "modern").
    - Never output 3 or more words per keyword.
    - Hierarchy:
-     * Tier 1 (Keywords 1-10): The exact primary objects, subjects, and main shapes visible to the eye.
-     * Tier 2 (Keywords 11-20): The exact visual style, colors, mood, lighting, and aesthetic attributes seen in this artwork.
+     * Tier 1 (Keywords 1-10): The exact primary objects, subjects, and main shapes visible to the eye. MUST directly match the core subject in the Title! At least 8-9 must be strictly single words!
+     * Tier 2 (Keywords 11-20): The exact visual style, colors, mood, lighting, aesthetic attributes, and secondary descriptors from the Title. At least 8 must be single words!
      * Tier 3 (Keywords 21-35): Realistic commercial design applications, industries, and creative use cases relevant to THIS specific subject matter.
      * Tier 4 (Keywords 36-49): Directly related broader stock search terms, design categories, and technical terminology.
 5. NO TRADEMARKS OR SPAM: No brand names (Apple, Nike, Photoshop, etc.). No repetitive keyword spam.
@@ -300,19 +710,61 @@ ${targetPlatform !== 'all' ? `TARGET PLATFORM: ${targetPlatform.toUpperCase()}` 
 File Name: ${fileName}
 `;
 
-    const contents = {
-      parts: [
-        {
-          inlineData: {
-            mimeType: effectiveMimeType,
-            data: cleanBase64,
-          },
+    const parts: any[] = [];
+    if (isVideoAsset && Array.isArray(videoFrames) && videoFrames.length > 0) {
+      videoFrames.forEach((frame: any, idx: number) => {
+        const fBase64 = (frame.imageBase64 || '').replace(/^data:[a-zA-Z0-9\/+-]+;base64,/, '');
+        if (fBase64) {
+          parts.push({
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: fBase64,
+            },
+          });
+          parts.push({
+            text: `[Video Temporal Frame ${idx + 1} of ${videoFrames.length}]: Captured at timestamp ${frame.timestamp}s (${frame.percent}% video timeline). Position: ${frame.label}.`,
+          });
+        }
+      });
+      parts.push({
+        text: `You have been provided with 3 TEMPORAL FRAMES extracted across this stock video footage clip ("${fileName}"):
+- Frame 1: Beginning / establishing shot (initial subjects, lighting, composition).
+- Frame 2: Midpoint / action peak (primary motion, camera angle, subject interaction).
+- Frame 3: Ending / motion trajectory (motion path, atmosphere, scene resolution).
+
+Carefully analyze the progressive visual evolution across all 3 frames:
+1. Identify the camera movement (e.g. aerial drone flyover, smooth panning, tilt shot, gimbal tracking, static tripod, slow motion b-roll).
+2. Identify what visible actions occur across the sequence.
+3. Generate a highly commercial stock footage title (strictly maximum 15 words, ideal 10 to 15 words) and exactly 49 hierarchical keywords (1 or 2 words max each) grounded in the complete 3-frame sequence. Do not guess or invent unrelated keywords.`,
+      });
+    } else if (hasCleanBase64) {
+      parts.push({
+        inlineData: {
+          mimeType: effectiveMimeType,
+          data: cleanBase64,
         },
-        {
-          text: `Examine the exact visual content of this ${isVideoAsset ? 'video footage representative frame' : 'image preview'} "${fileName}". Generate a commercially compelling, 100% relevant stock Title (15-25 words) and exactly 49 hierarchical keywords (1 or 2 words max each) strictly grounded in what is visible in this preview. Do not guess or output unrelated keywords.`,
-        },
-      ],
-    };
+      });
+      parts.push({
+        text: `Examine the exact visual content of "${fileName}". Generate a commercially compelling stock Title (strictly maximum 15 words, ideal 10 to 15 words) and EXACTLY ${targetKeywordCount} hierarchical keywords (1 or 2 words max each) strictly grounded in what is visible in this preview. Do not guess or output unrelated keywords.`,
+      });
+    } else {
+      // TEXT-ONLY CONTEXT FALLBACK (CRITICAL: Prevents 400 Bad Request error when MOV/ProRes/vector has no decoded frame)
+      parts.push({
+        text: `[STOCK METADATA GENERATION FROM ASSET SPECIFICATION & FILENAME]
+Note: This file is a professional stock ${isVideoAsset ? 'video footage clip (MOV/ProRes)' : 'design asset'} ("${fileName}") whose preview frame could not be visually rendered.
+Synthesize the subject, theme, industry context, and visual composition directly from the file name, media format, and technical details:
+- File Name: "${fileName}"
+- Media Type: ${isVideoAsset ? 'Stock Video Footage Clip' : 'Commercial Vector / Digital Graphic'}
+${customContext ? `- Contributor Subject Notes / Context: "${customContext}"` : ''}
+${videoMeta ? `- Technical Specs: Format: ${videoMeta.format?.toUpperCase() || 'MOV'}, Resolution: ${videoMeta.resolutionLabel || '4K UHD'}, Duration: ${videoMeta.duration || 15}s, Aspect Ratio: ${videoMeta.aspectRatio || '16:9 Landscape'}` : ''}
+${artworkType && artworkType !== 'auto' ? `- Artwork Type: ${artworkType}` : ''}
+${targetPlatform && targetPlatform !== 'all' ? `- Target Microstock Agency: ${targetPlatform.toUpperCase()}` : ''}
+
+Generate a commercially compelling stock Title (strictly maximum 15 words in professional stock English) and EXACTLY ${targetKeywordCount} hierarchical keywords (1 or 2 words max each) following Adobe Stock Page 1 standards. Ensure 100% mutual relevance between Title and Keywords.`,
+      });
+    }
+
+    const contents = { parts };
 
     let response;
     try {
@@ -361,63 +813,58 @@ File Name: ${fileName}
       return res.status(500).json({ error: 'Failed to parse model output as JSON', raw: rawText });
     }
 
-    // Helper to enforce max 2 words per keyword
-    const normalizeKeywords = (arr: any[]): string[] => {
-      if (!Array.isArray(arr)) return [];
-      const res: string[] = [];
-      for (const raw of arr) {
-        if (!raw) continue;
-        const cleaned = String(raw).trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '');
-        const words = cleaned.split(/\s+/).filter(Boolean);
-        if (words.length === 0) continue;
-        if (words.length <= 2) {
-          res.push(cleaned);
-        } else {
-          // If model returned > 2 words, split into separate single words
-          for (const w of words) {
-            if (w.length > 1) res.push(w);
-          }
-        }
-      }
-      return res;
-    };
+    let finalTitle = parsedData.title || fileName;
+    if (isVideoAsset) {
+      finalTitle = sanitizeStockVideoTitle(finalTitle);
+    }
+    finalTitle = clampTitleToMaxWords(finalTitle, 15);
 
-    // Post-process to ensure strict 49 keywords and proper tiers
-    const t1 = normalizeKeywords(parsedData.tier1Keywords);
-    const t2 = normalizeKeywords(parsedData.tier2Keywords);
-    const t3 = normalizeKeywords(parsedData.tier3Keywords);
-    const t4 = normalizeKeywords(parsedData.tier4Keywords);
-
-    // Deduplicate while preserving tier order
-    const seen = new Set<string>();
-    const filterUnique = (arr: string[]) => arr.filter((k) => {
-      if (!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-
-    const uniqueT1 = filterUnique(t1);
-    const uniqueT2 = filterUnique(t2);
-    const uniqueT3 = filterUnique(t3);
-    const uniqueT4 = filterUnique(t4);
-
-    const combined = [...uniqueT1, ...uniqueT2, ...uniqueT3, ...uniqueT4];
+    const curated = curateStockKeywords(
+      parsedData.tier1Keywords,
+      parsedData.tier2Keywords,
+      parsedData.tier3Keywords,
+      parsedData.tier4Keywords,
+      isVideoAsset,
+      finalTitle,
+      targetKeywordCount
+    );
 
     // Compute title word count accurately
-    const words = (parsedData.title || '').trim().split(/\s+/).filter(Boolean);
+    const words = finalTitle.trim().split(/\s+/).filter(Boolean);
 
     const categoryId = getAdobeCategoryId(parsedData.category, parsedData.categoryId);
 
     res.json({
       fileName,
-      title: parsedData.title,
+      title: finalTitle,
       titleWordCount: words.length,
-      breakdown: parsedData.breakdown || {},
-      tier1Keywords: uniqueT1,
-      tier2Keywords: uniqueT2,
-      tier3Keywords: uniqueT3,
-      tier4Keywords: uniqueT4,
-      allKeywords: combined,
+      titleCharCount: finalTitle.length,
+      breakdown: {
+        styleTheme: parsedData.breakdown?.styleTheme || 'Modern Commercial',
+        productFormat: parsedData.breakdown?.productFormat || (isVideoAsset ? 'Stock Footage' : 'Vector Illustration'),
+        visualElements: parsedData.breakdown?.visualElements || 'Detailed visual composition',
+        useCase: parsedData.breakdown?.useCase || 'Commercial stock design and marketing',
+        subjectAndFormat: parsedData.breakdown?.subjectAndFormat || parsedData.breakdown?.productFormat || 'Abstract vector gradient poster collection',
+        baseConditionOrColor: parsedData.breakdown?.baseConditionOrColor || 'with deep gradient background',
+        specificVisualElements: parsedData.breakdown?.specificVisualElements || parsedData.breakdown?.visualElements || 'vibrant light effects and blurred color waves',
+        styleAndDetails: parsedData.breakdown?.styleAndDetails || 'and futuristic line graphics for modern branding and print layout.',
+        isBundleOrCollection: parsedData.breakdown?.isBundleOrCollection ?? (finalTitle.toLowerCase().includes('collection') || finalTitle.toLowerCase().includes('set') || finalTitle.toLowerCase().includes('bundle')),
+        bundleElementsSummary: parsedData.breakdown?.bundleElementsSummary || 'Merangkum ragam elemen unik tiap desain dalam bundel visual.',
+        curatorStrengths: parsedData.breakdown?.curatorStrengths || [
+          'Menjawab Kebutuhan Bundel (Collection): Merangkum semua elemen unik variasi desain dalam satu kalimat alami.',
+          'Format Kalimat Alami (Natural Language): Ramah AI Search / Adobe Sensei tanpa tumpukan kata spam.'
+        ],
+        curatorTechnicalWarning: parsedData.breakdown?.curatorTechnicalWarning || (
+          finalTitle.length <= 70
+            ? `Panjang ${finalTitle.length} karakter (${words.length} kata): Sangat optimal untuk Web UI (maks 200) dan kolom CSV/FTP (maks 70).`
+            : `Panjang ${finalTitle.length} karakter (${words.length} kata): Lolos upload Web UI langsung (maks 200). Kolom CSV/FTP membatasi maks 70-100 karakter.`
+        ),
+      },
+      tier1Keywords: curated.tier1Keywords,
+      tier2Keywords: curated.tier2Keywords,
+      tier3Keywords: curated.tier3Keywords,
+      tier4Keywords: curated.tier4Keywords,
+      allKeywords: curated.allKeywords,
       category: parsedData.category || (isVideoAsset ? 'Landscapes' : 'Graphic Resources'),
       categoryId,
       secondaryCategory: parsedData.secondaryCategory || (isVideoAsset ? 'Technology' : 'Abstract'),
@@ -457,15 +904,18 @@ app.post('/api/refine-metadata', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Refinement instruction is required' });
     }
 
-    const systemPrompt = `You are a Senior Stock Contributor Strategist and Master AI Vision Specialist.
+    const systemPrompt = `You are a Senior Stock Contributor Strategist and Master AI Vision Specialist for Adobe Stock.
 Refine the provided microstock metadata according to the contributor's instruction while maintaining the strict formula:
-1. Title must be 15-25 words following: [Style/Theme] + [Product Format] + [Specific Visual Elements] + [Use Case/Application]
-2. Keywords must be exactly 49 unique keywords in 4 tiers:
-   - Tier 1 (1-10): Main object/subject visible in the image
-   - Tier 2 (11-20): Style, mood, & color
+1. Title must be strictly maximum 15 words (ideal: 10 to 15 words) following: [Style/Theme] + [Product Format] + [Specific Visual Elements] + [Use Case/Application]
+2. CRITICAL MUTUAL RELEVANCE (TITLE <-> KEYWORDS):
+   Every core noun, subject, action, context, and key adjective present in the TITLE MUST directly appear in the keywords (particularly in Tier 1 and Tier 2).
+   Zero disconnected or filler keywords.
+3. Keywords must be exactly 49 unique keywords in 4 tiers:
+   - Tier 1 (1-10): Main object/subject visible in the image, directly matching the core subject of the Title (at least 8 single words)
+   - Tier 2 (11-20): Style, mood, & color, matching Title descriptors (at least 8 single words)
    - Tier 3 (21-35): Use case, application, target industry
    - Tier 4 (36-49): Broad concepts, categories, technical
-CRITICAL KEYWORD RULE: Each keyword must strictly be 1 or 2 words maximum (prefer concise single words).
+4. CRITICAL KEYWORD MANDATE: 75% to 80% of keywords MUST be strictly 1 single word. Maximum 20% to 25% may be 2 words for recognized fixed compound phrases (e.g. electric vehicle, fast charger, 3d rendering, copy space, golden hour, slow motion, drone shot). Never output 3 or more words per keyword.
 No brand names, no spam. Stay 100% truthful to the visual asset.`;
 
     const userText = `Current Title: "${currentTitle}"
@@ -473,7 +923,7 @@ Current Keywords (${(currentKeywords || []).length}): ${(currentKeywords || []).
 Contributor Refinement Request: "${refinementInstruction}"
 File Name: ${fileName}
 
-Please update the title (15-25 words) and all 49 keywords (1-2 words max each) strictly following the requested changes while maintaining truthful visual relevance.`;
+Please update the title (strictly maximum 15 words) and all 49 keywords (1-2 words max each) strictly following the requested changes while maintaining 100% mutual relevance between Title and Keywords.`;
 
     const parts: any[] = [];
     if (imageBase64) {
@@ -526,45 +976,35 @@ Please update the title (15-25 words) and all 49 keywords (1-2 words max each) s
     }
 
     const parsedData = JSON.parse(response.text || '{}');
-    const words = (parsedData.title || '').trim().split(/\s+/).filter(Boolean);
+    const isVideoAsset = fileName.toLowerCase().match(/\.(mp4|mov|webm|m4v|avi|mkv)$/) !== null;
+    let finalTitle = parsedData.title || fileName;
+    if (isVideoAsset) {
+      finalTitle = sanitizeStockVideoTitle(finalTitle);
+    }
+    finalTitle = clampTitleToMaxWords(finalTitle, 15);
+    const words = finalTitle.trim().split(/\s+/).filter(Boolean);
 
-    // Normalize keywords to max 2 words
-    const normalizeKeywords = (arr: any[]): string[] => {
-      if (!Array.isArray(arr)) return [];
-      const res: string[] = [];
-      for (const raw of arr) {
-        if (!raw) continue;
-        const cleaned = String(raw).trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '');
-        const wList = cleaned.split(/\s+/).filter(Boolean);
-        if (wList.length === 0) continue;
-        if (wList.length <= 2) res.push(cleaned);
-        else {
-          for (const w of wList) {
-            if (w.length > 1) res.push(w);
-          }
-        }
-      }
-      return res;
-    };
+    const curated = curateStockKeywords(
+      parsedData.tier1Keywords,
+      parsedData.tier2Keywords,
+      parsedData.tier3Keywords,
+      parsedData.tier4Keywords,
+      isVideoAsset,
+      finalTitle
+    );
 
-    const t1 = normalizeKeywords(parsedData.tier1Keywords);
-    const t2 = normalizeKeywords(parsedData.tier2Keywords);
-    const t3 = normalizeKeywords(parsedData.tier3Keywords);
-    const t4 = normalizeKeywords(parsedData.tier4Keywords);
-
-    const combined = [...t1, ...t2, ...t3, ...t4];
     const categoryId = getAdobeCategoryId(parsedData.category, parsedData.categoryId);
 
     res.json({
       fileName,
-      title: parsedData.title,
+      title: finalTitle,
       titleWordCount: words.length,
       breakdown: parsedData.breakdown || {},
-      tier1Keywords: t1,
-      tier2Keywords: t2,
-      tier3Keywords: t3,
-      tier4Keywords: t4,
-      allKeywords: combined,
+      tier1Keywords: curated.tier1Keywords,
+      tier2Keywords: curated.tier2Keywords,
+      tier3Keywords: curated.tier3Keywords,
+      tier4Keywords: curated.tier4Keywords,
+      allKeywords: curated.allKeywords,
       category: parsedData.category || 'Graphic Resources',
       categoryId,
       secondaryCategory: parsedData.secondaryCategory || 'Abstract',
@@ -575,6 +1015,227 @@ Please update the title (15-25 words) and all 49 keywords (1-2 words max each) s
     console.error('Error refining metadata:', err);
     const errorMessage = err instanceof Error ? err.message : 'Unknown error during refinement';
     res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Motion Studio Canvas Code Generator endpoint
+app.post('/api/generate-motion', async (req: Request, res: Response) => {
+  try {
+    const { prompt, duration = 15, bgMode = 'transparent', referenceImageBase64, apiKey, selectedModel } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const effectiveApiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!effectiveApiKey) {
+      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured' });
+    }
+
+    const activeAi = new GoogleGenAI({ apiKey: effectiveApiKey });
+    const model = selectedModel || 'gemini-3.8-flash';
+
+    const bgRule = bgMode === 'custom'
+      ? 'DIIZINKAN merender background artistik kustom sendiri di dalam kode.'
+      : 'DILARANG merender background warna solid di dalam kode. Biarkan area dasar transparan (Alpha Channel) agar engine dapat mengatur background solid/green-screen secara dinamis.';
+
+    const systemPrompt = `You are an elite Motion Graphics Designer and JavaScript HTML5 Canvas Animation Specialist for Anime, 3D, VFX, and Microstock Video clips.
+Your task is to generate a PURE, HIGH-PERFORMANCE Canvas 2D API code snippet.
+
+Execution Environment & Injected Variables:
+1. \`ctx\` (CanvasRenderingContext2D instance)
+2. \`t\` (Float representing animation time in seconds, e.g. 0.00, 1.25, 14.90)
+3. \`opts\` ({ width: 1920, height: 1080 } representing fixed 16:9 Landscape resolution)
+
+STRICT CODING RULES:
+1. Output ONLY the raw JavaScript execution snippet. NEVER wrap in a function declaration.
+2. NEVER output markdown code blocks or backticks (\`\`\`javascript or \`\`\`).
+3. Always wrap code within a block scope \`ctx.save(); { const { width, height } = opts; const cx = width / 2; const cy = height / 2; ... } ctx.restore();\`.
+4. Create vibrant, fluid, professional animations (anime 3D cel-shaded, isometric, sci-fi HUD, neon laser glow, smooth sin/cos interpolation, shadows, particle loops).
+5. Ensure animations loop seamlessly or evolve smoothly over time \`t\`.
+6. ${bgRule}
+7. Use pure standard Canvas 2D methods.`;
+
+    const parts: any[] = [];
+    if (referenceImageBase64) {
+      const cleanBase64 = referenceImageBase64.replace(/^data:[a-zA-Z0-9\/+-]+;base64,/, '');
+      const effMime = detectImageMimeType(cleanBase64, 'image/png');
+      parts.push({
+        inlineData: {
+          mimeType: effMime,
+          data: cleanBase64,
+        },
+      });
+      parts.push({
+        text: `Analyze this reference artwork. Create a high-end HTML5 Canvas 2D animation inspired by this visual style and composition with instruction: "${prompt}". Target duration: ${duration} seconds.`,
+      });
+    } else {
+      parts.push({
+        text: `Create a high-end HTML5 Canvas 2D animation with instruction: "${prompt}". Target duration: ${duration} seconds.`,
+      });
+    }
+
+    const response = await activeAi.models.generateContent({
+      model,
+      contents: { parts },
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.25,
+      },
+    });
+
+    let code = (response.text || '').trim();
+    if (code.startsWith('```javascript')) code = code.slice(13);
+    else if (code.startsWith('```js')) code = code.slice(5);
+    else if (code.startsWith('```')) code = code.slice(3);
+    if (code.endsWith('```')) code = code.slice(0, -3);
+
+    res.json({ code: code.trim() });
+  } catch (err: any) {
+    console.error('Error generating motion:', err);
+    res.status(500).json({ error: err.message || 'Error generating motion code' });
+  }
+});
+
+// Motion Studio Copilot Refinement endpoint
+app.post('/api/refine-motion', async (req: Request, res: Response) => {
+  try {
+    const { currentCode, refinementPrompt, duration = 15, referenceImageBase64, apiKey, selectedModel } = req.body;
+    if (!currentCode || !refinementPrompt) {
+      return res.status(400).json({ error: 'currentCode and refinementPrompt are required' });
+    }
+
+    const effectiveApiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!effectiveApiKey) {
+      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured' });
+    }
+
+    const activeAi = new GoogleGenAI({ apiKey: effectiveApiKey });
+    const model = selectedModel || 'gemini-3.8-flash';
+
+    const systemPrompt = `You are an elite Motion Graphics Copilot and Canvas 2D Specialist.
+Modify the provided Canvas JavaScript code according to the contributor's refinement request.
+Output ONLY raw executable JavaScript code. Do NOT wrap in function or markdown backticks.`;
+
+    const userQuery = `KODE SEBELUMNYA:
+${currentCode}
+
+PERINTAH PERBAIKAN COPILOT:
+"${refinementPrompt}"
+
+Durasi: ${duration}s. Kembalikan HANYA kode JS yang telah diperbaiki.`;
+
+    const parts: any[] = [];
+    if (referenceImageBase64) {
+      const cleanBase64 = referenceImageBase64.replace(/^data:[a-zA-Z0-9\/+-]+;base64,/, '');
+      const effMime = detectImageMimeType(cleanBase64, 'image/png');
+      parts.push({
+        inlineData: {
+          mimeType: effMime,
+          data: cleanBase64,
+        },
+      });
+    }
+    parts.push({ text: userQuery });
+
+    const response = await activeAi.models.generateContent({
+      model,
+      contents: { parts },
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.2,
+      },
+    });
+
+    let code = (response.text || '').trim();
+    if (code.startsWith('```javascript')) code = code.slice(13);
+    else if (code.startsWith('```js')) code = code.slice(5);
+    else if (code.startsWith('```')) code = code.slice(3);
+    if (code.endsWith('```')) code = code.slice(0, -3);
+
+    res.json({ code: code.trim() });
+  } catch (err: any) {
+    console.error('Error refining motion:', err);
+    res.status(500).json({ error: err.message || 'Error refining motion code' });
+  }
+});
+
+// BatchImage Pro AI Image Generator endpoint
+app.post('/api/generate-image', async (req: Request, res: Response) => {
+  try {
+    const { prompt, aspectRatio = '1:1', apiKey, selectedModel } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    const effectiveApiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (!effectiveApiKey) {
+      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured' });
+    }
+
+    const activeAi = new GoogleGenAI({ apiKey: effectiveApiKey });
+    const model = selectedModel || 'gemini-3.1-flash-lite-image';
+
+    // 1. Try Imagen 3 first
+    try {
+      const imgRes = await activeAi.models.generateImages({
+        model: 'imagen-3.0-generate-002',
+        prompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: (aspectRatio === '16:9' || aspectRatio === '9:16' || aspectRatio === '4:3' || aspectRatio === '3:4') ? aspectRatio : '1:1',
+          outputMimeType: 'image/jpeg',
+        },
+      });
+      const b64 = imgRes?.generatedImages?.[0]?.image?.imageBytes;
+      if (b64) {
+        return res.json({ imageUrl: `data:image/jpeg;base64,${b64}` });
+      }
+    } catch (imagenErr) {
+      // Fallback to generateContent image models
+    }
+
+    let response;
+    try {
+      response = await activeAi.models.generateContent({
+        model,
+        contents: {
+          parts: [{ text: prompt }],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: aspectRatio || '1:1',
+          },
+        },
+      });
+    } catch (modelErr: any) {
+      // Fallback model
+      const fallbackModel = 'gemini-2.5-flash';
+      response = await activeAi.models.generateContent({
+        model: fallbackModel,
+        contents: {
+          parts: [{ text: prompt }],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: aspectRatio || '1:1',
+          },
+        },
+      });
+    }
+
+    const candidate = response?.candidates?.[0];
+    const part = candidate?.content?.parts?.find((p: any) => p.inlineData);
+
+    if (part && part.inlineData) {
+      const mime = part.inlineData.mimeType || 'image/png';
+      const dataUrl = `data:${mime};base64,${part.inlineData.data}`;
+      return res.json({ imageUrl: dataUrl });
+    }
+
+    throw new Error('Gagal mendapatkan gambar dari AI (tidak ada gambar pada respons).');
+  } catch (err: any) {
+    console.error('Error generating image in server:', err);
+    res.status(500).json({ error: err.message || 'Error generating image' });
   }
 });
 
@@ -676,14 +1337,17 @@ async function start() {
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR !== 'true',
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`StockMeta AI server running on port ${PORT}`);
+    console.log(`C46u5 Studio server running on port ${PORT}`);
   });
 }
 

@@ -1,7 +1,6 @@
 {
-  "name": "StockMeta AI",
-  "description": "Senior Stock Contributor Strategist & AI Vision Studio for Adobe Stock and Shutterstock metadata optimization with 49 hierarchical keywords and batch CSV export.",
+  "name": "C46u5 Studio",
+  "description": "Retro-modern AI Vision Studio & Stock Metadata Strategist for Adobe Stock and Shutterstock with 49 hierarchical keywords, Page 1 SEO optimization, 3-frame video vision, and batch CSV export.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
-

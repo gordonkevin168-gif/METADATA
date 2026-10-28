@@ -8,7 +8,7 @@ import {
   Image as ImageIcon, 
   FileCode,
   X,
-  Plus
+  Play
 } from 'lucide-react';
 
 interface UploadZoneProps {
@@ -20,14 +20,13 @@ interface UploadZoneProps {
 }
 
 const CONTEXT_SUGGESTIONS = [
-  'Cinematic 4K drone aerial shot of tropical island beach',
-  'Slow motion pouring espresso coffee in cafe b-roll',
-  'Modern fintech startup banking app and web UI icons',
-  'Time-lapse sunset over modern metropolitan city skyline',
+  'Fintech startup banking app and web UI icons',
+  'Cinematic 4K drone aerial sunset tropical beach',
+  'Slow motion espresso coffee beans b-roll',
   'Minimalist boho interior foliage line art print',
-  'Cyberpunk neon synthwave futuristic video background',
-  'Ramadan Mubarak Islamic holiday greeting card template',
-  '4K vertical 9:16 reels footage of morning coffee barista',
+  'Cyberpunk neon synthwave video background',
+  'Ramadan Mubarak Islamic holiday greeting template',
+  '4K vertical 9:16 reels morning coffee barista',
 ];
 
 export const UploadZone: React.FC<UploadZoneProps> = ({
@@ -67,17 +66,19 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-800/80 p-4 sm:p-5 shadow-sm space-y-4">
+    <div className="bg-[#12131c] rounded-2xl border-2 border-[#2b2d3d] p-4 sm:p-5 shadow-[4px_4px_0px_#000] space-y-4 font-mono select-none">
       {/* Context Input & Actions Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between pb-3 border-b border-slate-800/70">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between pb-3 border-b-2 border-[#212332]">
         <div className="flex items-center gap-2">
-          <Compass className="w-4 h-4 text-indigo-400 shrink-0" />
+          <div className="w-6 h-6 rounded bg-indigo-950 text-indigo-400 border border-indigo-500/40 flex items-center justify-center shrink-0">
+            <Compass className="w-3.5 h-3.5" />
+          </div>
           <div>
-            <h3 className="text-xs font-semibold text-slate-200">
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">
               Konteks Desain &amp; Tema Aset (Opsional)
             </h3>
             <p className="text-[11px] text-slate-400">
-              Mengarahkan kata kunci Tier 3 (aplikasi komersial &amp; industri) sesuai tema spesifik Anda.
+              Mengarahkan kata kunci Tier 3 (aplikasi industri &amp; use case) sesuai tema spesifik Anda.
             </p>
           </div>
         </div>
@@ -85,10 +86,10 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
         <button
           onClick={onLoadSamples}
           disabled={disabled}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 text-slate-200 border border-slate-700/80 text-xs font-medium transition-all cursor-pointer whitespace-nowrap shadow-sm hover:border-slate-600"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1e2030] hover:bg-[#282b40] text-amber-300 border-2 border-black font-bold text-xs shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer whitespace-nowrap"
         >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Muat 6 Contoh Demo (Foto, Vektor &amp; Video)</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span>Muat 6 Demo Microstock</span>
         </button>
       </div>
 
@@ -99,13 +100,13 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             type="text"
             value={globalContext}
             onChange={(e) => setGlobalContext(e.target.value)}
-            placeholder="Contoh: Modern fintech dashboard, 4K drone sunset footage, atau Ramadan greeting card..."
-            className="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-950/70 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-normal"
+            placeholder="Ketik tema aset (misal: Fintech dashboard, 4K sunset drone footage, Ramadan banner)..."
+            className="w-full px-3.5 py-2 text-xs rounded-xl bg-[#090a12] border-2 border-[#2b2d3d] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-mono"
           />
           {globalContext && (
             <button
               onClick={() => setGlobalContext('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300 rounded cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white rounded cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -114,31 +115,31 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
 
         {/* Quick context suggestion pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] text-slate-400 no-scrollbar">
-          <span className="text-slate-500 flex items-center gap-1 shrink-0 text-[10px]">
-            <Tag className="w-3 h-3" /> Ide cepat:
+          <span className="text-slate-500 flex items-center gap-1 shrink-0 text-[10px] uppercase font-bold">
+            <Tag className="w-3 h-3 text-amber-400" /> Ide Cepat:
           </span>
           {CONTEXT_SUGGESTIONS.map((s, idx) => (
             <button
               key={idx}
               onClick={() => setGlobalContext(s)}
-              className="px-2.5 py-0.5 rounded-full bg-slate-950/80 hover:bg-slate-800 text-slate-300 border border-slate-800/90 shrink-0 transition-colors cursor-pointer text-[10px]"
+              className="px-2.5 py-0.5 rounded-md bg-[#181a28] hover:bg-[#222538] text-slate-300 hover:text-white border border-[#2b2d42] shrink-0 transition-all cursor-pointer text-[10px] active:scale-95"
             >
-              {s.length > 36 ? s.substring(0, 36) + '...' : s}
+              {s.length > 34 ? s.substring(0, 34) + '...' : s}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Modern Minimalist Drop Zone */}
+      {/* Retro Drag & Drop Zone */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => !disabled && fileInputRef.current?.click()}
-        className={`relative border border-dashed rounded-xl p-6 sm:p-7 text-center transition-all cursor-pointer select-none ${
+        className={`relative border-2 border-dashed rounded-xl p-6 sm:p-7 text-center transition-all cursor-pointer select-none ${
           isDragging
-            ? 'border-indigo-500 bg-indigo-500/10 scale-[1.002]'
-            : 'border-slate-800 hover:border-slate-700 bg-slate-950/40 hover:bg-slate-950/60'
+            ? 'border-amber-400 bg-amber-400/10'
+            : 'border-[#2d3045] hover:border-amber-400/80 bg-[#090a12] hover:bg-[#0e0f1a]'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input
@@ -152,29 +153,29 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
         />
 
         <div className="flex flex-col items-center justify-center space-y-2.5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 transition-transform">
-            <UploadCloud className="w-5 h-5" />
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_#000]">
+            <UploadCloud className="w-6 h-6" />
           </div>
 
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold text-slate-200">
-              Drag &amp; drop file di sini, atau{' '}
-              <span className="text-indigo-400 underline decoration-indigo-400/40 font-medium">pilih dari komputer</span>
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-white">
+              Drag &amp; drop file ke sini, atau{' '}
+              <span className="text-amber-400 underline decoration-amber-400/50 cursor-pointer">pilih dari komputer</span>
             </p>
             <p className="text-[11px] text-slate-400 max-w-lg mx-auto">
-              Mendukung video <strong className="text-slate-300">MP4, MOV, WebM (4K &amp; HD)</strong>, file vektor{' '}
-              <strong className="text-slate-300">EPS, AI, SVG</strong>, serta foto <strong className="text-slate-300">JPG, PNG, WEBP</strong>.
+              Mendukung video <strong className="text-emerald-300">MP4, MOV, WebM (4K &amp; 3-Frame Vision)</strong>, file vektor{' '}
+              <strong className="text-amber-300">EPS, AI, SVG</strong>, serta foto <strong className="text-indigo-300">JPG, PNG, WEBP</strong>.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1 text-[10px] text-slate-400 font-mono">
-            <span className="px-2 py-0.5 rounded-md bg-emerald-950/50 text-emerald-300 border border-emerald-800/40 flex items-center gap-1">
-              <Video className="w-3 h-3" /> 4K &amp; HD Video
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[10px] text-slate-400 font-bold">
+            <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+              <Video className="w-3 h-3" /> 3-FRAME 4K VIDEO
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800 flex items-center gap-1">
-              <FileCode className="w-3 h-3" /> EPS / AI Vector
+            <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+              <FileCode className="w-3 h-3" /> EPS / AI VECTOR
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800 flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/40 flex items-center gap-1">
               <ImageIcon className="w-3 h-3" /> JPG / PNG / SVG
             </span>
           </div>

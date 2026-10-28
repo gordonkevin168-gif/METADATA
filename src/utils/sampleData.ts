@@ -174,7 +174,599 @@ const sampleVideoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800
   <line x1="400" y1="205" x2="400" y2="245" stroke="#facc15" stroke-width="1.5" opacity="0.7" />
 </svg>`;
 
+const sampleEvChargingSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="evBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050811" />
+      <stop offset="50%" stop-color="#0b1329" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <linearGradient id="batteryGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <filter id="neonBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="800" height="600" fill="url(#evBg)" />
+  <g stroke="#1e293b" stroke-width="1" opacity="0.4">
+    <line x1="0" y1="100" x2="800" y2="100" />
+    <line x1="0" y1="200" x2="800" y2="200" />
+    <line x1="0" y1="300" x2="800" y2="300" />
+    <line x1="0" y1="400" x2="800" y2="400" />
+    <line x1="0" y1="500" x2="800" y2="500" />
+    <line x1="160" y1="0" x2="160" y2="600" />
+    <line x1="320" y1="0" x2="320" y2="600" />
+    <line x1="480" y1="0" x2="480" y2="600" />
+    <line x1="640" y1="0" x2="640" y2="600" />
+  </g>
+  <circle cx="400" cy="270" r="160" fill="none" stroke="#1e293b" stroke-width="14" />
+  <circle cx="400" cy="270" r="160" fill="none" stroke="url(#batteryGrad)" stroke-width="14" stroke-dasharray="880" stroke-dashoffset="190" stroke-linecap="round" filter="url(#neonBlur)" />
+  <circle cx="400" cy="270" r="120" fill="#0f172a" stroke="#334155" stroke-width="2" />
+  <path d="M395 195 L375 250 L405 250 L390 310 L430 240 L405 240 Z" fill="#00f2fe" filter="url(#neonBlur)" />
+  <text x="400" y="345" fill="#ffffff" font-family="monospace" font-size="34" font-weight="900" text-anchor="middle">88%</text>
+  <text x="400" y="370" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="bold" letter-spacing="3" text-anchor="middle">FAST CHARGING</text>
+  <rect x="80" y="60" width="220" height="60" rx="8" fill="#0f172a" stroke="#00f2fe" stroke-width="1.5" opacity="0.9" />
+  <text x="95" y="85" fill="#38bdf8" font-family="monospace" font-size="10" font-weight="bold">DC FAST CHARGER 350kW</text>
+  <text x="95" y="105" fill="#ffffff" font-family="monospace" font-size="14" font-weight="bold">STATION #04 ACTIVE</text>
+  <rect x="500" y="60" width="220" height="60" rx="8" fill="#0f172a" stroke="#10b981" stroke-width="1.5" opacity="0.9" />
+  <text x="515" y="85" fill="#34d399" font-family="monospace" font-size="10" font-weight="bold">ESTIMATED TIME TO FULL</text>
+  <text x="515" y="105" fill="#ffffff" font-family="monospace" font-size="14" font-weight="bold">12 MINS · 420V / 240A</text>
+  <rect x="120" y="480" width="560" height="70" rx="12" fill="#0b1329" stroke="#334155" stroke-width="1.5" />
+  <g transform="translate(145, 500)">
+    <rect x="0" y="0" width="85" height="30" rx="4" fill="#06b6d4" />
+    <rect x="95" y="0" width="85" height="30" rx="4" fill="#06b6d4" />
+    <rect x="190" y="0" width="85" height="30" rx="4" fill="#06b6d4" />
+    <rect x="285" y="0" width="85" height="30" rx="4" fill="#06b6d4" />
+    <rect x="380" y="0" width="85" height="30" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-dasharray="4 4" />
+  </g>
+  <text x="400" y="580" fill="#64748b" font-family="monospace" font-size="11" text-anchor="middle">EV AUTOMOTIVE INDUSTRY POWER LEVEL HUD · 3D RENDERING</text>
+</svg>`;
+
+const sampleAiRecruitmentSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="aiRecBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0f1d" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#aiRecBg)" />
+  <rect x="30" y="30" width="740" height="45" rx="8" fill="#1f2937" stroke="#374151" stroke-width="1.5" />
+  <circle cx="55" cy="52" r="6" fill="#ef4444" />
+  <circle cx="75" cy="52" r="6" fill="#f59e0b" />
+  <circle cx="95" cy="52" r="6" fill="#10b981" />
+  <text x="130" y="57" fill="#60a5fa" font-family="monospace" font-size="13" font-weight="bold">AI RECRUITMENT SOFTWARE · CV SCREENING PIPELINE 4K</text>
+  <text x="640" y="57" fill="#9ca3af" font-family="monospace" font-size="11">AUTOMATED HR</text>
+
+  <rect x="30" y="90" width="240" height="310" rx="12" fill="#1e2433" stroke="#3b82f6" stroke-width="1.5" />
+  <circle cx="150" cy="170" r="50" fill="#0f172a" stroke="#60a5fa" stroke-width="2" />
+  <rect x="130" y="150" width="40" height="30" rx="6" fill="#3b82f6" opacity="0.8" />
+  <circle cx="140" cy="165" r="4" fill="#ffffff" />
+  <circle cx="160" cy="165" r="4" fill="#ffffff" />
+  <path d="M150 120 L150 145" stroke="#60a5fa" stroke-width="3" />
+  <circle cx="150" cy="118" r="5" fill="#38bdf8" />
+  <line x1="80" y1="240" x2="220" y2="240" stroke="#00f2fe" stroke-width="2" stroke-dasharray="6 4" />
+  <text x="150" y="275" fill="#ffffff" font-family="monospace" font-size="13" font-weight="bold" text-anchor="middle">AI SCANNING CV</text>
+  <text x="150" y="300" fill="#34d399" font-family="monospace" font-size="11" text-anchor="middle">MATCH SCORE: 98.4%</text>
+  <text x="150" y="325" fill="#94a3b8" font-family="monospace" font-size="10" text-anchor="middle">EXPERIENCE: 8+ YRS UX</text>
+  <rect x="70" y="345" width="160" height="26" rx="6" fill="#10b981" />
+  <text x="150" y="362" fill="#064e3b" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle">AUTO-SHORTLISTED</text>
+
+  <g transform="translate(290, 90)">
+    <rect x="0" y="0" width="150" height="310" rx="10" fill="#182030" stroke="#334155" />
+    <text x="15" y="28" fill="#93c5fd" font-family="monospace" font-size="11" font-weight="bold">INBOX (1,420 CV)</text>
+    <rect x="12" y="45" width="126" height="55" rx="6" fill="#0f172a" stroke="#1e293b" />
+    <rect x="12" y="110" width="126" height="55" rx="6" fill="#0f172a" stroke="#1e293b" />
+    <rect x="12" y="175" width="126" height="55" rx="6" fill="#0f172a" stroke="#1e293b" />
+
+    <rect x="165" y="0" width="150" height="310" rx="10" fill="#182030" stroke="#3b82f6" stroke-width="1.5" />
+    <text x="180" y="28" fill="#60a5fa" font-family="monospace" font-size="11" font-weight="bold">AI SCREENING (48)</text>
+    <rect x="177" y="45" width="126" height="70" rx="6" fill="#1e3a8a" opacity="0.6" stroke="#3b82f6" />
+    <rect x="177" y="125" width="126" height="70" rx="6" fill="#1e3a8a" opacity="0.6" stroke="#3b82f6" />
+
+    <rect x="330" y="0" width="150" height="310" rx="10" fill="#182030" stroke="#10b981" stroke-width="1.5" />
+    <text x="345" y="28" fill="#34d399" font-family="monospace" font-size="11" font-weight="bold">HIRED / OFFER (6)</text>
+    <rect x="342" y="45" width="126" height="75" rx="6" fill="#064e3b" opacity="0.7" stroke="#10b981" />
+  </g>
+
+  <rect x="35" y="415" width="730" height="20" fill="none" />
+  <circle cx="50" cy="425" r="5" fill="#ef4444" />
+  <text x="65" y="429" fill="#facc15" font-family="monospace" font-size="10" font-weight="bold">REC [●] 4K 60FPS UHD · EXPLAINER MOTION GRAPHICS</text>
+  <text x="660" y="429" fill="#9ca3af" font-family="monospace" font-size="10">00:00:24:18</text>
+</svg>`;
+
+const sampleCyberSecuritySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <defs>
+    <linearGradient id="cyberBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060913" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="laptopScreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+    <linearGradient id="neonBlue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#cyberBg)" />
+  <g transform="translate(100, 25)">
+    <!-- Laptop Body -->
+    <rect x="50" y="20" width="500" height="310" rx="16" fill="#1e2433" stroke="#334155" stroke-width="2" />
+    <rect x="65" y="35" width="470" height="280" rx="8" fill="url(#laptopScreen)" stroke="#1e293b" />
+    <circle cx="300" cy="27" r="3" fill="#64748b" />
+    <polygon points="10,340 590,340 550,375 50,375" fill="#1e293b" stroke="#334155" />
+    <rect x="250" y="340" width="100" height="6" rx="3" fill="#0f172a" />
+    
+    <!-- Header bar -->
+    <rect x="75" y="45" width="450" height="32" rx="6" fill="#0f172a" stroke="#1e293b" />
+    <circle cx="95" cy="61" r="5" fill="#ef4444" />
+    <circle cx="110" cy="61" r="5" fill="#f59e0b" />
+    <circle cx="125" cy="61" r="5" fill="#10b981" />
+    <text x="145" y="65" fill="#38bdf8" font-family="monospace" font-size="11" font-weight="bold">CYBERSECURITY MONITORING SYSTEM · 4K</text>
+    
+    <!-- Left panel: Password Protection & Lock Icon -->
+    <rect x="75" y="85" width="210" height="220" rx="8" fill="#111827" stroke="#1e293b" />
+    <circle cx="180" cy="130" r="28" fill="#0f172a" stroke="#00f2fe" stroke-width="2" />
+    <path d="M172 126 L172 114 A8 8 0 0 1 188 114 L188 126" fill="none" stroke="#00f2fe" stroke-width="2.5" stroke-linecap="round" />
+    <rect x="168" y="126" width="24" height="18" rx="3" fill="#00f2fe" />
+    <circle cx="180" cy="134" r="2" fill="#0f172a" />
+    <text x="180" y="180" fill="#ffffff" font-family="monospace" font-size="11" font-weight="bold" text-anchor="middle">PASSWORD PROTECTION</text>
+    <!-- Password dots -->
+    <rect x="95" y="195" width="170" height="26" rx="6" fill="#030712" stroke="#374151" />
+    <circle cx="120" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="138" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="156" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="174" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="192" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="210" cy="208" r="3.5" fill="#10b981" />
+    <circle cx="228" cy="208" r="3.5" fill="#10b981" />
+    <rect x="95" y="235" width="170" height="22" rx="4" fill="#065f46" />
+    <text x="180" y="250" fill="#34d399" font-family="monospace" font-size="10" font-weight="bold" text-anchor="middle">SECURE LOGIN · GRANTED</text>
+
+    <!-- Right panel: Charts & Analytics Interface -->
+    <rect x="295" y="85" width="230" height="105" rx="8" fill="#111827" stroke="#1e293b" />
+    <text x="310" y="105" fill="#94a3b8" font-family="monospace" font-size="9" font-weight="bold">DATA PROTECTION TRAFFIC</text>
+    <path d="M315 160 L345 140 L375 150 L405 120 L435 135 L465 110 L495 125" fill="none" stroke="url(#neonBlue)" stroke-width="2.5" stroke-linecap="round" />
+    
+    <rect x="295" y="198" width="230" height="107" rx="8" fill="#111827" stroke="#1e293b" />
+    <text x="310" y="218" fill="#94a3b8" font-family="monospace" font-size="9" font-weight="bold">THREAT DETECTION METRICS</text>
+    <rect x="315" y="255" width="18" height="35" rx="2" fill="#10b981" />
+    <rect x="345" y="240" width="18" height="50" rx="2" fill="#10b981" />
+    <rect x="375" y="230" width="18" height="60" rx="2" fill="#00f2fe" />
+    <rect x="405" y="245" width="18" height="45" rx="2" fill="#00f2fe" />
+    <rect x="435" y="260" width="18" height="30" rx="2" fill="#3b82f6" />
+    <rect x="465" y="235" width="18" height="55" rx="2" fill="#10b981" />
+  </g>
+</svg>`;
+
 export const SAMPLE_STOCK_ASSETS: StockItem[] = [
+  {
+    id: 'sample-cybersecurity-laptop',
+    file: null,
+    fileName: 'animated_laptop_password_cybersecurity_dashboard.mp4',
+    fileSize: 52000000,
+    mimeType: 'video/mp4',
+    mediaType: 'video',
+    artworkType: 'footage',
+    previewUrl: `data:image/svg+xml;base64,${svgToBase64(sampleCyberSecuritySvg)}`,
+    imageBase64: svgToBase64(sampleCyberSecuritySvg),
+    customContext: 'High demand Adobe Stock Page 1 animated laptop showing cybersecurity password protection and charts interface',
+    status: 'completed',
+    videoMeta: {
+      duration: 20.0,
+      width: 3840,
+      height: 2160,
+      resolutionLabel: '4K UHD',
+      aspectRatio: '16:9 Landscape',
+      format: 'mp4',
+      extractedFrameTimestamp: 2.0,
+    },
+    title: 'Animated Laptop Displaying Password Protection Dashboard Interface with Charts for Cybersecurity Monitoring System',
+    titleWordCount: 13,
+    breakdown: {
+      styleTheme: 'Animated Digital UI Graphic',
+      productFormat: '4K Stock Footage Motion',
+      visualElements: 'Laptop with password protection dashboard, lock icon, and charts',
+      useCase: 'Secure login, data protection, and cybersecurity monitoring system',
+    },
+    categoryId: 19,
+    category: 'Technology',
+    secondaryCategory: 'Business',
+    tier1Keywords: [
+      'laptop',
+      'dashboard',
+      'interface',
+      'charts',
+      'lock',
+      'icon',
+      'password',
+      'screen',
+      'cybersecurity',
+      'display',
+    ],
+    tier2Keywords: [
+      'animated',
+      'digital',
+      'blue',
+      'modern',
+      'clean',
+      'motion',
+      'graphic',
+      'ui',
+      'tech',
+      'minimalist',
+    ],
+    tier3Keywords: [
+      'security',
+      'protection',
+      'login',
+      'monitoring',
+      'authentication',
+      'privacy',
+      'access',
+      'data',
+      'system',
+      'software',
+      'safe',
+      'cloud',
+      'network',
+      'corporate',
+      'business',
+    ],
+    tier4Keywords: [
+      'footage',
+      '4k',
+      'clip',
+      'animation',
+      'loop',
+      'horizontal',
+      'concept',
+      'innovation',
+      'intelligence',
+      'virtual',
+      'analytics',
+      'compliance',
+      'enterprise',
+      'solution',
+    ],
+    allKeywords: [
+      'laptop',
+      'dashboard',
+      'interface',
+      'charts',
+      'lock',
+      'icon',
+      'password',
+      'screen',
+      'cybersecurity',
+      'display',
+      'animated',
+      'digital',
+      'blue',
+      'modern',
+      'clean',
+      'motion',
+      'graphic',
+      'ui',
+      'tech',
+      'minimalist',
+      'security',
+      'protection',
+      'login',
+      'monitoring',
+      'authentication',
+      'privacy',
+      'access',
+      'data',
+      'system',
+      'software',
+      'safe',
+      'cloud',
+      'network',
+      'corporate',
+      'business',
+      'footage',
+      '4k',
+      'clip',
+      'animation',
+      'loop',
+      'horizontal',
+      'concept',
+      'innovation',
+      'intelligence',
+      'virtual',
+      'analytics',
+      'compliance',
+      'enterprise',
+      'solution',
+    ],
+    rejectionRiskScore: 'low',
+    reviewNotes: 'Standar Emas Adobe Stock Page 1: Menghindari awalan klise kamera (tanpa "Static 4K Video Shot of..."), langsung ke subjek visual utama. Kata penghubung & kata kerja difilter, hanya mengambil subjek komersial berpeluang pencarian besar.',
+  },
+  {
+    id: 'sample-ev-charging',
+    file: null,
+    fileName: 'ev_battery_charging_interface_3d_render.svg',
+    fileSize: 48000,
+    mimeType: 'image/svg+xml',
+    previewUrl: `data:image/svg+xml;base64,${svgToBase64(sampleEvChargingSvg)}`,
+    imageBase64: svgToBase64(sampleEvChargingSvg),
+    artworkType: 'illustration',
+    customContext: 'Futuristic electric vehicle charging station UI and 3D telemetry display',
+    status: 'completed',
+    title: 'Battery Charging Status of Electric Vehicle Interface Using Fast Charger from Station Display',
+    titleWordCount: 13,
+    breakdown: {
+      styleTheme: '3D Rendering Futuristic',
+      productFormat: 'UI Display Interface',
+      visualElements: 'Battery charging status, DC fast charger, fuel power level indicator',
+      useCase: 'EV automotive industry technology and clean energy charging station',
+    },
+    categoryId: 19,
+    category: 'Technology',
+    secondaryCategory: 'Transport',
+    tier1Keywords: [
+      'battery',
+      'charger',
+      'station',
+      'vehicle',
+      'display',
+      'interface',
+      'indicator',
+      'screen',
+      'gauge',
+      'charging',
+    ],
+    tier2Keywords: [
+      '3d rendering',
+      'futuristic',
+      'fuel',
+      'ui',
+      'ev',
+      'automotive',
+      'industry',
+      'cyan',
+      'glowing',
+      'digital',
+    ],
+    tier3Keywords: [
+      'clean energy',
+      'electricity',
+      'dashboard',
+      'eco',
+      'mobility',
+      'smart car',
+      'transport',
+      'drive',
+      'sustainable',
+      'automobile',
+      'cable',
+      'meter',
+      'electric vehicle',
+      'power level',
+      'fast charger',
+    ],
+    tier4Keywords: [
+      'innovation',
+      'high tech',
+      'render',
+      'visual',
+      'commercial',
+      'isolated',
+      'concept',
+      'dark',
+      'illuminated',
+      'plug',
+      'power',
+      'energy',
+      'device',
+      'telemetry',
+    ],
+    allKeywords: [
+      'battery',
+      'charger',
+      'station',
+      'vehicle',
+      'display',
+      'interface',
+      'indicator',
+      'screen',
+      'gauge',
+      'charging',
+      '3d rendering',
+      'futuristic',
+      'fuel',
+      'ui',
+      'ev',
+      'automotive',
+      'industry',
+      'cyan',
+      'glowing',
+      'digital',
+      'clean energy',
+      'electricity',
+      'dashboard',
+      'eco',
+      'mobility',
+      'smart car',
+      'transport',
+      'drive',
+      'sustainable',
+      'automobile',
+      'cable',
+      'meter',
+      'electric vehicle',
+      'power level',
+      'fast charger',
+      'innovation',
+      'high tech',
+      'render',
+      'visual',
+      'commercial',
+      'isolated',
+      'concept',
+      'dark',
+      'illuminated',
+      'plug',
+      'power',
+      'energy',
+      'device',
+      'telemetry',
+    ],
+    rejectionRiskScore: 'low',
+    reviewNotes: 'Audit Kurator Adobe Stock: 100% Selaras. Objek visual hero (battery, charger, station) memimpin Tier 1, 80% kata tunggal, dan kata pengisi judul difilter rapi.',
+  },
+  {
+    id: 'sample-ai-recruitment',
+    file: null,
+    fileName: 'animated_4k_ai_recruitment_cv_screening_explainer.mp4',
+    fileSize: 48000000,
+    mimeType: 'video/mp4',
+    mediaType: 'video',
+    artworkType: 'footage',
+    previewUrl: `data:image/svg+xml;base64,${svgToBase64(sampleAiRecruitmentSvg)}`,
+    imageBase64: svgToBase64(sampleAiRecruitmentSvg),
+    customContext: 'Explainer video animation showing AI recruitment software automating HR workflow',
+    status: 'completed',
+    videoMeta: {
+      duration: 24.5,
+      width: 3840,
+      height: 2160,
+      resolutionLabel: '4K UHD',
+      aspectRatio: '16:9 Landscape',
+      format: 'mp4',
+      extractedFrameTimestamp: 2.4,
+    },
+    title: 'AI Recruitment Software Automating CV Screening Process for Efficient Hiring and Workflow Management',
+    titleWordCount: 13,
+    breakdown: {
+      styleTheme: 'Animated Explainer Motion Graphic',
+      productFormat: '4K Video Footage',
+      visualElements: 'AI recruitment software automating CV screening dashboard',
+      useCase: 'Efficient hiring and human resources management workflow',
+    },
+    categoryId: 3,
+    category: 'Business',
+    secondaryCategory: 'Technology',
+    tier1Keywords: [
+      'robot',
+      'dashboard',
+      'infographic',
+      'interface',
+      'recruitment',
+      'screening',
+      'automation',
+      'software',
+      'hiring',
+      'process',
+    ],
+    tier2Keywords: [
+      'animated',
+      'digital',
+      'blue',
+      'minimalist',
+      'graphic',
+      'modern',
+      'clean',
+      'motion',
+      'corporate',
+      'tech',
+    ],
+    tier3Keywords: [
+      'hr',
+      'management',
+      'business',
+      'workflow',
+      'ux',
+      'designer',
+      'analytics',
+      'efficiency',
+      'technology',
+      'presentation',
+      'marketing',
+      'strategy',
+      'data',
+      'application',
+      'employment',
+    ],
+    tier4Keywords: [
+      'footage',
+      '4k',
+      'clip',
+      'roll',
+      'cinematic',
+      'loop',
+      'horizontal',
+      'concept',
+      'innovation',
+      'intelligence',
+      'virtual',
+      'system',
+      'optimization',
+      'professional',
+    ],
+    allKeywords: [
+      'robot',
+      'dashboard',
+      'infographic',
+      'interface',
+      'recruitment',
+      'screening',
+      'automation',
+      'software',
+      'hiring',
+      'process',
+      'animated',
+      'digital',
+      'blue',
+      'minimalist',
+      'graphic',
+      'modern',
+      'clean',
+      'motion',
+      'corporate',
+      'tech',
+      'hr',
+      'management',
+      'business',
+      'workflow',
+      'ux',
+      'designer',
+      'analytics',
+      'efficiency',
+      'technology',
+      'presentation',
+      'marketing',
+      'strategy',
+      'data',
+      'application',
+      'employment',
+      'footage',
+      '4k',
+      'clip',
+      'roll',
+      'cinematic',
+      'loop',
+      'horizontal',
+      'concept',
+      'innovation',
+      'intelligence',
+      'virtual',
+      'system',
+      'optimization',
+      'professional',
+    ],
+    rejectionRiskScore: 'low',
+    reviewNotes: 'Perfect title-keyword symbiosis. Top-ranking Adobe Stock 4K video footage keywords matching corporate HR tech search demand.',
+  },
   {
     id: 'sample-1',
     file: null,
@@ -186,8 +778,8 @@ export const SAMPLE_STOCK_ASSETS: StockItem[] = [
     artworkType: 'vector',
     customContext: 'Modern fintech startup banking app and web UI icons',
     status: 'completed',
-    title: 'Modern Minimalist Flat Vector Illustration of Financial Banking and Cryptocurrency Icons Set for Technology Mobile Application and Web Interface Design',
-    titleWordCount: 20,
+    title: 'Financial Banking and Cryptocurrency Vector Icons Set for Mobile App and Web Design',
+    titleWordCount: 13,
     breakdown: {
       styleTheme: 'Modern Minimalist Flat',
       productFormat: 'Vector Illustration Set',
@@ -377,8 +969,8 @@ export const SAMPLE_STOCK_ASSETS: StockItem[] = [
       format: 'mp4',
       extractedFrameTimestamp: 1.2,
     },
-    title: 'Slow Motion 4K Drone Aerial Shot of Golden Sunset Over Mountain Valley for Cinematic Travel Commercial B-Roll',
-    titleWordCount: 19,
+    title: 'Golden Sunset Over Mountain Valley Ridges Aerial Panorama for Nature Travel Documentary',
+    titleWordCount: 12,
     breakdown: {
       styleTheme: 'Cinematic Aerial Drone',
       productFormat: '4K Stock Footage B-Roll',
@@ -497,6 +1089,6 @@ export const SAMPLE_STOCK_ASSETS: StockItem[] = [
     categoryId: 11,
     secondaryCategory: 'Technology',
     rejectionRiskScore: 'low',
-    reviewNotes: 'High commercial demand 4K drone stock footage with all 49 keywords adhering to Adobe Stock & Shutterstock specifications.',
+    reviewNotes: 'Format Video Standar Page 1: Menghindari awalan klise kamera (tanpa "Slow Motion 4K Drone Aerial Shot of..."), langsung ke subjek visual utama. 49 keyword berbobot komersial tinggi.',
   },
 ];
