@@ -389,7 +389,10 @@ export const Header: React.FC<HeaderProps> = ({
               <img
                 src={currentUser.avatarUrl}
                 alt={currentUser.name}
-                className="w-7 h-7 rounded-xl object-cover border border-indigo-500/50 shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/assets/aistudio/image_f2fb12db.png';
+                }}
+                className="w-7 h-7 rounded-xl object-cover border border-rose-500/60 shrink-0 shadow-sm"
               />
               <span className={`text-xs font-bold hidden sm:inline truncate max-w-[90px] ${
                 isLight ? 'text-slate-900' : 'text-white'

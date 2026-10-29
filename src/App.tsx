@@ -44,12 +44,12 @@ import { downloadZipAllMetadata } from './utils/metadataEmbedder';
 const API_KEY_STORAGE_KEY = 'stockmeta_gemini_api_keys_v1';
 const MODEL_STORAGE_KEY = 'stockmeta_gemini_model_v2';
 const SUBAPP_STORAGE_KEY = 'c46us_active_subapp_v1';
-const USER_PROFILE_STORAGE_KEY = 'c46us_user_profile_v1';
+const USER_PROFILE_STORAGE_KEY = 'c46us_user_profile_v2';
 
 const DEFAULT_USER_PROFILE: UserProfile = {
   email: 'gordonkevin168@gmail.com',
-  name: 'Kevin Gordon',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+  name: 'c46u5',
+  avatarUrl: '/assets/c46us-avatar.png',
   isLoggedIn: true,
   provider: 'google',
   role: 'pro_contributor',
@@ -125,8 +125,22 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {
-      const saved = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem(USER_PROFILE_STORAGE_KEY) || localStorage.getItem('c46us_user_profile_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.name === 'Kevin Gordon' || !parsed.name || parsed.avatarUrl?.includes('unsplash')) {
+          const upgraded: UserProfile = {
+            ...parsed,
+            name: 'c46u5',
+            avatarUrl: '/assets/c46us-avatar.png',
+          };
+          try {
+            localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(upgraded));
+          } catch {}
+          return upgraded;
+        }
+        return parsed;
+      }
     } catch {}
     return DEFAULT_USER_PROFILE;
   });

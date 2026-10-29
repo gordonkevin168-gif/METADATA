@@ -261,6 +261,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom User Plan Widget (Matching image.png) */}
       <div className={`pt-4 border-t space-y-3 ${isLight ? 'border-slate-200/80' : 'border-white/[0.07]'}`}>
+        {/* User Profile Card */}
+        <div
+          onClick={onOpenAuthModal}
+          className={`flex items-center gap-2.5 p-2 rounded-2xl cursor-pointer transition border ${
+            isLight
+              ? 'bg-slate-100/70 hover:bg-slate-200/80 border-slate-200/80'
+              : 'bg-white/[0.03] hover:bg-white/[0.07] border-white/5'
+          }`}
+          title="Buka detail profil kontributor"
+        >
+          <img
+            src={currentUser.avatarUrl}
+            alt={currentUser.name}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/assets/aistudio/image_f2fb12db.png';
+            }}
+            className="w-8 h-8 rounded-xl object-cover border border-rose-500/60 shrink-0 shadow-xs"
+          />
+          <div className="min-w-0 flex-1">
+            <p className={`text-xs font-black truncate leading-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+              {currentUser.name}
+            </p>
+            <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+              {currentUser.email}
+            </p>
+          </div>
+        </div>
+
         <div className={`rounded-2xl p-3.5 space-y-2.5 border transition-all ${
           isLight
             ? 'bg-slate-50 border-slate-200/90 text-slate-800 shadow-xs'
